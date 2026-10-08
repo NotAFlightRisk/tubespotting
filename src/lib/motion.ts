@@ -25,6 +25,9 @@ export interface Placement extends Point {
   angle: number;
   /** Set while the train is stood at a station */
   at: number | null;
+  /** The neighbouring stations either side of it, and how far along between them */
+  between: [number, number];
+  f: number;
 }
 
 /** Live run times keyed `line:from>to`, measured off every train's own ETAs */
@@ -127,7 +130,9 @@ function along(line: LineId, path: number[], fraction: number): Placement {
       ox: normal.x * slot,
       oy: normal.y * slot,
       angle: Math.atan2(b.y - a.y, b.x - a.x),
-      at: null
+      at: null,
+      between: [path[i], path[i + 1]],
+      f
     };
   }
   return standing(line, path[0], path[0]);
@@ -137,7 +142,15 @@ function standing(line: LineId, station: number, towards: number): Placement {
   const path = pathBetween(line, station, towards);
   const next = path?.[1];
   if (next === undefined) {
-    return { ...pointOf(station), ox: 0, oy: 0, angle: 0, at: station };
+    return {
+      ...pointOf(station),
+      ox: 0,
+      oy: 0,
+      angle: 0,
+      at: station,
+      between: [station, station],
+      f: 0
+    };
   }
   return { ...along(line, [station, next], 0), at: station };
 }

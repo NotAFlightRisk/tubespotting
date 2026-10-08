@@ -151,7 +151,8 @@
     align-items: center;
     gap: var(--space-2);
     margin: 0;
-    font: 15px/1.2 var(--font-display);
+    font: 600 13px/1.2 var(--font-ui);
+    font-variant-numeric: tabular-nums;
     color: var(--text-muted);
 
     .swatch {

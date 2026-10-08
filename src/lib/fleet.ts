@@ -37,7 +37,9 @@ function blend(shown: Placement, target: Placement, k: number): Placement {
     ox: shown.ox + (target.ox - shown.ox) * k,
     oy: shown.oy + (target.oy - shown.oy) * k,
     angle: turn(shown.angle, target.angle, k),
-    at: target.at
+    at: target.at,
+    between: target.between,
+    f: target.f
   };
 }
 

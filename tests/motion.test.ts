@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { Fleet } from '#lib/fleet.js';
+import { Fleet, type Tracked } from '#lib/fleet.js';
 import { locate, schedule } from '#lib/motion.js';
 import { distance, stations } from '#lib/network.js';
+import { whereIs } from '#lib/status.js';
 import type { Snapshot, TrainReading } from '#lib/types.js';
 import { AT, index } from './helpers.js';
 
@@ -61,6 +62,26 @@ describe('locate', () => {
   it('works out where a train is coming from when TfL does not say', () => {
     const [first] = schedule(train({ from: null, where: '' }), AT);
     expect(first.from).toBe(STOCKWELL);
+  });
+});
+
+describe('whereIs', () => {
+  it('names neighbouring stations even when a leg skips calls', () => {
+    const VICTORIA = index('940GZZLUVIC');
+    const reading = train({
+      stops: [
+        [STOCKWELL, 0, 0],
+        [VICTORIA, 300, 0]
+      ]
+    });
+    const where = [60, 150, 230, 290].map((t) =>
+      whereIs({ legs: schedule(reading, AT), reading } as Tracked, AT + t * 1000)
+    );
+    for (const text of where) {
+      expect(text).toMatch(
+        /^(Between|Approaching) (Stockwell and Vauxhall|Vauxhall and Pimlico|Pimlico and Victoria|Vauxhall|Pimlico|Victoria)$/
+      );
+    }
   });
 });
 
