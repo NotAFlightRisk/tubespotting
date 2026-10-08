@@ -60,20 +60,29 @@ interface LineData {
 
 const lineData = data.lines as unknown as LineData[];
 
-// Every station pair any line runs between, for spotting trains that skip stops
-const everyLink = new Map<number, Set<number>>();
 const link = (graph: Map<number, Set<number>>, a: number, b: number) => {
   graph.set(a, (graph.get(a) ?? new Set()).add(b));
   graph.set(b, (graph.get(b) ?? new Set()).add(a));
 };
 
+// Every station pair any line runs between, for spotting trains that skip stops
+const everyLink = new Map<number, Set<number>>();
+
+/** Each line's calls as TfL runs them, for working out which train is which */
+export const routeGraph = new Map<LineId, Map<number, Set<number>>>();
+
 for (const line of lineData) {
+  const graph = new Map<number, Set<number>>();
   for (const route of line.routes) {
-    for (let i = 1; i < route.length; i++) link(everyLink, route[i - 1], route[i]);
+    for (let i = 1; i < route.length; i++) {
+      link(everyLink, route[i - 1], route[i]);
+      link(graph, route[i - 1], route[i]);
+    }
     for (const stop of route) {
       if (!stations[stop].lines.includes(line.id)) stations[stop].lines.push(line.id);
     }
   }
+  routeGraph.set(line.id, graph);
 }
 
 /** Shortest way round a link through other stations, if it's nearly as straight as the link */
@@ -152,13 +161,18 @@ export function strand(a: number, b: number, line: LineId): { slot: number; norm
   };
 }
 
-const paths = new Map<string, number[] | null>();
+type Cache<T> = Map<LineId, Map<number, T>>;
 
-/** Stations a train on this line passes between two calls, ends included */
-export function pathBetween(line: LineId, from: number, to: number): number[] | null {
-  const key = `${line}:${from}>${to}`;
-  if (paths.has(key)) return paths.get(key)!;
-  const graph = lineGraph.get(line);
+// per line, keyed `from * 1024 + to`, as these get asked for thousands of times a snapshot
+function cached<T>(cache: Cache<T>, line: LineId, from: number, to: number, work: () => T): T {
+  if (!cache.has(line)) cache.set(line, new Map());
+  const mine = cache.get(line)!;
+  const key = from * 1024 + to;
+  if (!mine.has(key)) mine.set(key, work());
+  return mine.get(key)!;
+}
+
+function shortest(graph: Map<number, Set<number>> | undefined, from: number, to: number) {
   const via = new Map<number, number>([[from, from]]);
   const queue = [from];
   while (queue.length && !via.has(to)) {
@@ -169,14 +183,25 @@ export function pathBetween(line: LineId, from: number, to: number): number[] | 
       queue.push(next);
     }
   }
-  let path: number[] | null = null;
-  if (via.has(to)) {
-    path = [to];
-    while (path[0] !== from) path.unshift(via.get(path[0])!);
-  }
-  paths.set(key, path);
+  if (!via.has(to)) return null;
+  const path = [to];
+  while (path[0] !== from) path.unshift(via.get(path[0])!);
   return path;
 }
+
+const drawnPaths: Cache<number[] | null> = new Map();
+const routePaths: Cache<number[] | null> = new Map();
+const times: Cache<number> = new Map();
+
+/** Stations a train on this line passes between two calls, ends included, as drawn */
+export const pathBetween = (line: LineId, from: number, to: number) =>
+  cached(drawnPaths, line, from, to, () => shortest(lineGraph.get(line), from, to));
+
+/** How many calls apart two stations are on a line, or Infinity if it never links them */
+export const callsApart = (line: LineId, from: number, to: number) => {
+  const path = cached(routePaths, line, from, to, () => shortest(routeGraph.get(line), from, to));
+  return path ? path.length - 1 : Infinity;
+};
 
 const runs = new Map(lineData.map((line) => [line.id, line.runs]));
 
@@ -191,12 +216,13 @@ export function runTime(line: LineId, from: number, to: number): number {
   return 30 + metres / 14;
 }
 
-/** Timetabled seconds between any two stations on a line, stop by stop */
-export function travelTime(line: LineId, from: number, to: number): number {
-  const path = pathBetween(line, from, to) ?? [from, to];
-  let seconds = 0;
-  for (let i = 1; i < path.length; i++) seconds += runTime(line, path[i - 1], path[i]);
-  return seconds;
-}
+/** Timetabled seconds between any two stations on a line, call by call */
+export const travelTime = (line: LineId, from: number, to: number) =>
+  cached(times, line, from, to, () => {
+    const path = shortest(routeGraph.get(line), from, to) ?? [from, to];
+    let seconds = 0;
+    for (let i = 1; i < path.length; i++) seconds += runTime(line, path[i - 1], path[i]);
+    return seconds;
+  });
 
 export const generated = data.generated;

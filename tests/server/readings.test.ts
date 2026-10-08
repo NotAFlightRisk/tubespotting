@@ -16,7 +16,7 @@ describe('readTrains', () => {
       call('940GZZLUPCO', 290)
     ]);
     expect(rest).toEqual([]);
-    expect(train.id).toBe('victoria:201:Walthamstow Central');
+    expect(train.id).toBe('victoria:201');
     expect(train.to).toBe('Walthamstow Central');
     expect(train.from).toBe(index('940GZZLUBXN'));
     expect(stopsOf(train)).toEqual([
@@ -36,8 +36,8 @@ describe('readTrains', () => {
   });
 
   it('ignores a call at a station the line never stops at', () => {
-    const [train] = read([call('940GZZLUSKW', 60), call('940GZZLUEMB', 300)]);
-    expect(stopsOf(train)).toEqual([[index('940GZZLUSKW'), 60]]);
+    const trains = read([call('940GZZLUSKW', 60), call('940GZZLUEMB', 300)]);
+    expect(trains.map(stopsOf)).toEqual([[[index('940GZZLUSKW'), 60]]]);
   });
 
   it('splits two trains that share an id but run on different branches', () => {
@@ -86,6 +86,36 @@ describe('readTrains', () => {
       ]
     ]);
     expect(trains.every((train) => train.id === null)).toBe(true);
+  });
+
+  it("keeps a named train whole when TfL's destination text wobbles", () => {
+    const trains = read([
+      call('940GZZLUSKW', 60),
+      call('940GZZLUVXL', 200, { destinationName: undefined, towards: 'Walthamstow Central' })
+    ]);
+    expect(trains.map(stopsOf)).toEqual([
+      [
+        [index('940GZZLUSKW'), 60],
+        [index('940GZZLUVXL'), 200]
+      ]
+    ]);
+  });
+
+  it('keeps two nameless trains apart when they reach a station close together', () => {
+    const northern = (naptan: string, eta: number, where: string) =>
+      call(naptan, eta, {
+        lineId: 'northern',
+        vehicleId: '000',
+        destinationName: 'Morden Underground Station',
+        currentLocation: where
+      });
+    const trains = read([
+      northern('940GZZLUBOR', 30, 'Approaching Borough'),
+      northern('940GZZLUBOR', 100, 'At London Bridge'),
+      northern('940GZZLUEAC', 120, 'Approaching Borough'),
+      northern('940GZZLUEAC', 190, 'At London Bridge')
+    ]);
+    expect(trains).toHaveLength(2);
   });
 
   it("drops a named train's return trip", () => {

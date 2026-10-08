@@ -47,6 +47,17 @@ describe('locate', () => {
     expect(locate('victoria', legs, VAUXHALL, seconds(600)).at).toBe(PIMLICO);
   });
 
+  it("keeps a train at the platform TfL says it's at, even with an ETA that says it left", () => {
+    const stood = train({ where: 'At Stockwell Platform 1', stops: [[VAUXHALL, 20, 0]] });
+    const placed = locate('victoria', schedule(stood, AT), VAUXHALL, seconds(0));
+    expect(distance(placed, stations[STOCKWELL])).toBeLessThan(1);
+  });
+
+  it('leaves a train where it is when TfL says it is stood at its next call', () => {
+    const stood = train({ where: 'At Vauxhall', from: VAUXHALL, stops: [[VAUXHALL, 40, 0]] });
+    expect(locate('victoria', schedule(stood, AT), VAUXHALL, seconds(0)).at).toBe(VAUXHALL);
+  });
+
   it('works out where a train is coming from when TfL does not say', () => {
     const [first] = schedule(train({ from: null, where: '' }), AT);
     expect(first.from).toBe(STOCKWELL);

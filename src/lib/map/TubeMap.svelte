@@ -164,6 +164,17 @@
     const observer = new ResizeObserver(resize);
     observer.observe(wrap);
     resize();
+    // moving to a screen with a different pixel density doesn't resize anything
+    let density: MediaQueryList;
+    const watchDensity = () => {
+      density = matchMedia(`(resolution: ${devicePixelRatio}dppx)`);
+      density.addEventListener('change', onDensity, { once: true });
+    };
+    const onDensity = () => {
+      resize();
+      watchDensity();
+    };
+    watchDensity();
     flyTo(START(size.width >= 600), 1, true);
     document.fonts?.load('12px "Hammersmith One"').then(() => (dirty = true));
 
@@ -185,11 +196,9 @@
         const want = { x: inset.left + w / 2, y: h / 2 };
         const here = { x: followed.shown.x * v.k + v.x, y: followed.shown.y * v.k + v.y };
         const k = 1 - Math.exp(-dt / 0.35);
-        select(top).call(
-          behaviour.translateBy,
-          ((want.x - here.x) * k) / v.k,
-          ((want.y - here.y) * k) / v.k
-        );
+        const [dx, dy] = [(want.x - here.x) * k, (want.y - here.y) * k];
+        // the whole network repaints on every nudge, so ignore the sub-pixel ones
+        if (Math.hypot(dx, dy) > 0.75) select(top).call(behaviour.translateBy, dx / v.k, dy / v.k);
       }
       if (dirty) {
         ({ hits: stationHits, labels } = paintNetwork(baseCtx, view(), palette, focus));
@@ -210,6 +219,7 @@
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
+      density.removeEventListener('change', onDensity);
       select(top).on('.zoom', null);
     };
   });
@@ -220,11 +230,16 @@
   class="map"
   bind:this={wrap}
   tabindex="0"
-  role="application"
+  role="region"
   aria-roledescription="map"
   aria-label={label}
+  aria-describedby="map-keys"
   {onkeydown}
 >
+  <p id="map-keys" class="visually-hidden">
+    Arrow keys move the map, plus and minus zoom. The line list, search and station boards have
+    everything the map shows.
+  </p>
   <canvas bind:this={base} aria-hidden="true"></canvas>
   <canvas
     bind:this={top}

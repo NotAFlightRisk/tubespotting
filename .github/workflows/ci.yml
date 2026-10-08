@@ -65,6 +65,10 @@ jobs:
           for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:3000/ > /dev/null; then
               echo "up after ${i}s"
+              # 503 is TfL having a moment, anything else is ours
+              code=$(curl -s -o /dev/null -w '%{http_code}' -m 30 http://127.0.0.1:3000/api/live)
+              echo "/api/live answered $code"
+              [ "$code" = 200 ] || [ "$code" = 503 ] || { docker logs ci; exit 1; }
               exit 0
             fi
             sleep 1

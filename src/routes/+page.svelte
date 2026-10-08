@@ -30,6 +30,7 @@
   let selection = $state<Selection>(null);
   let follow = $state(false);
   let searching = $state(false);
+  let finder: HTMLButtonElement;
   let you = $state<Point | null>(null);
   let notice = $state('');
   let now = $state(Date.now());
@@ -131,7 +132,8 @@
 
   $effect(() => {
     const url = new URL(location.href);
-    url.search = '';
+    url.searchParams.delete('line');
+    url.searchParams.delete('station');
     if (selection?.kind === 'line') url.searchParams.set('line', selection.id);
     if (selection?.kind === 'station')
       url.searchParams.set('station', stations[selection.index].id);
@@ -189,11 +191,11 @@
     <header class="masthead">
       <div class="brand">
         <h1>tubespotting</h1>
-        <p class="pill" class:live={freshness === 'Live'} role="status">
+        <p class="pill" class:live={freshness === 'Live'}>
           <span class="beat" aria-hidden="true"></span>
           {#if live.snapshot}<span>{running.length} trains</span><span aria-hidden="true">·</span
             >{/if}
-          <span>{freshness}</span>
+          <span role="status">{freshness}</span>
         </p>
       </div>
       <div class="actions">
@@ -201,6 +203,7 @@
           type="button"
           aria-label="Search"
           aria-expanded={searching}
+          bind:this={finder}
           onclick={() => (searching = !searching)}
         >
           <Icon name="search" />
@@ -218,7 +221,10 @@
           <Search
             onpickstation={pickStation}
             onpickline={pickLine}
-            onclose={() => (searching = false)}
+            onclose={() => {
+              searching = false;
+              finder.focus();
+            }}
           />
         </div>
       {/if}

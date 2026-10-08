@@ -44,6 +44,8 @@ jobs:
           package-manager-cache: false
       - run: npm ci
         if: steps.ready.outputs.go == 'true'
+      - run: npm run check
+        if: steps.ready.outputs.go == 'true'
       - run: npm test
         if: steps.ready.outputs.go == 'true'
       - run: npm run build
@@ -77,11 +79,21 @@ jobs:
             printf '%s' "$TFL_APP_KEY" | npx wrangler secret put TFL_APP_KEY
           fi
 
-      - name: Check trains are moving
+      - name: Check the new build is live and trains are moving
         if: steps.ready.outputs.go == 'true'
         run: |
           site=$(node -p "require('./package.json').homepage")
-          for i in $(seq 1 20); do
+          built=$(node -p "require('./.svelte-kit/cloudflare/_app/version.json').version")
+          for _ in $(seq 1 20); do
+            live=$(curl -fsS "$site/_app/version.json?$built" | node -pe "JSON.parse(require('fs').readFileSync(0)).version" 2>/dev/null || true)
+            [ "$live" = "$built" ] && break
+            sleep 6
+          done
+          if [ "$live" != "$built" ]; then
+            echo "❌ [$site]($site) is still serving $live, not $built" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          for _ in $(seq 1 20); do
             trains=$(curl -fsS "$site/api/live" | node -pe "JSON.parse(require('fs').readFileSync(0)).trains.length" 2>/dev/null || echo 0)
             if [ "$trains" -gt 0 ]; then
               echo "✅ [$site]($site) is tracking $trains trains" >> "$GITHUB_STEP_SUMMARY"

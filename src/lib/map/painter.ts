@@ -71,6 +71,13 @@ const tickTrack = new Map(
   ])
 );
 
+// does the segment's box overlap the screen, so long tracks crossing it still get drawn
+const crosses = (view: View, a: Point, b: Point, margin = 20) =>
+  Math.max(a.x, b.x) > -margin &&
+  Math.min(a.x, b.x) < view.width + margin &&
+  Math.max(a.y, b.y) > -margin &&
+  Math.min(a.y, b.y) < view.height + margin;
+
 const strandOffset = (a: number, b: number, line: LineId, width: number) => {
   const { slot, normal } = strand(a, b, line);
   return { x: normal.x * slot * width, y: normal.y * slot * width };
@@ -101,7 +108,7 @@ function drawTracks(ctx: CanvasRenderingContext2D, view: View, palette: Palette,
       if (!track.lines.includes(line)) continue;
       const a = toScreen(view, stations[track.a]);
       const b = toScreen(view, stations[track.b]);
-      if (!visible(view, a, 400) && !visible(view, b, 400)) continue;
+      if (!crosses(view, a, b)) continue;
       const off = strandOffset(track.a, track.b, line, width);
       ctx.moveTo(a.x + off.x, a.y + off.y);
       ctx.lineTo(b.x + off.x, b.y + off.y);
