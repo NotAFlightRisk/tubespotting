@@ -21,9 +21,9 @@ export interface Line {
   ink: string;
 }
 
-// TfL's own line palette, with whatever reads on top of it
+// TfL's own line palette, with whichever ink clears 4.5:1 on top of it
 export const LINES: Line[] = [
-  { id: 'bakerloo', name: 'Bakerloo', colour: '#b36305', ink: '#ffffff' },
+  { id: 'bakerloo', name: 'Bakerloo', colour: '#b36305', ink: '#000000' },
   { id: 'central', name: 'Central', colour: '#e32017', ink: '#ffffff' },
   { id: 'circle', name: 'Circle', colour: '#ffd300', ink: '#0019a8' },
   { id: 'district', name: 'District', colour: '#00782a', ink: '#ffffff' },
@@ -32,7 +32,7 @@ export const LINES: Line[] = [
   { id: 'metropolitan', name: 'Metropolitan', colour: '#9b0056', ink: '#ffffff' },
   { id: 'northern', name: 'Northern', colour: '#000000', ink: '#ffffff' },
   { id: 'piccadilly', name: 'Piccadilly', colour: '#003688', ink: '#ffffff' },
-  { id: 'victoria', name: 'Victoria', colour: '#0098d4', ink: '#ffffff' },
+  { id: 'victoria', name: 'Victoria', colour: '#0098d4', ink: '#000000' },
   { id: 'waterloo-city', name: 'Waterloo & City', colour: '#95cdba', ink: '#0019a8' }
 ];
 

@@ -17,6 +17,8 @@
   --ring: light-dark(#14181f, #e9eef6);
   --ring-fill: light-dark(#ffffff, #0e131b);
   --northern: light-dark(#000000, #dfe3e8);
+  --piccadilly: light-dark(#003688, #5b8def);
+  --metropolitan: light-dark(#9b0056, #d0559a);
   --good: light-dark(#00782a, #5fd38a);
   --warn: light-dark(#a35a00, #ffb648);
   --bad: light-dark(#c4161c, #ff7a7f);
