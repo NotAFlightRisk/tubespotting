@@ -4,9 +4,12 @@
 </script>
 
 <h2>About</h2>
-<p>Every London Underground train on one map, moving as TfL reports it.</p>
 <p>
-  TfL doesn't say where tube trains physically are, only when each one's due at each station. So the
+  Every London Underground train on one map, moving as TfL reports it. The Elizabeth line and
+  Overground can go on too, from the end of the line list.
+</p>
+<p>
+  TfL doesn't say where trains physically are, only when each one's due at each station. So the
   positions here are worked out from those times and can be a few hundred metres out. Good enough to
   watch your train coming, not to set your watch by.
 </p>

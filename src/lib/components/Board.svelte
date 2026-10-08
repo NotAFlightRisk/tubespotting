@@ -1,15 +1,21 @@
 <script lang="ts">
-  import { LINES, type LineId } from '#lib/lines.js';
+  import { LINES, MODES, type LineId, type ModeId } from '#lib/lines.js';
   import { count, tone } from '#lib/status.js';
   import type { LineStatus } from '#lib/types.js';
+  import Icon from './Icon.svelte';
 
   interface Props {
     status: LineStatus[];
     counts: Map<LineId, number>;
+    shown: Set<LineId>;
+    extras: ModeId[];
     onpick: (line: LineId) => void;
+    ontoggle: (mode: ModeId) => void;
   }
 
-  let { status, counts, onpick }: Props = $props();
+  let { status, counts, shown, extras, onpick, ontoggle }: Props = $props();
+
+  const OPTIONAL = MODES.filter((mode) => mode.id !== 'tube');
 
   const byLine = $derived(new Map(status.map((s) => [s.id, s])));
 </script>
@@ -17,7 +23,7 @@
 <nav class="board" aria-label="Lines">
   <h2 class="visually-hidden">Lines</h2>
   <ul>
-    {#each LINES as line (line.id)}
+    {#each LINES.filter((line) => shown.has(line.id)) as line (line.id)}
       {@const state = byLine.get(line.id)}
       {@const feeling = state ? tone(state.severity) : 'good'}
       <li>
@@ -34,6 +40,15 @@
             {state?.status ?? 'Checking'}
           </span>
           <span class="count">{count(counts.get(line.id) ?? 0, 'train')}</span>
+        </button>
+      </li>
+    {/each}
+    {#each OPTIONAL as mode (mode.id)}
+      {@const on = extras.includes(mode.id)}
+      <li class="optional">
+        <button type="button" class="mode" aria-pressed={on} onclick={() => ontoggle(mode.id)}>
+          <Icon name={on ? 'check' : 'plus'} size={16} />
+          {mode.name}
         </button>
       </li>
     {/each}
@@ -83,6 +98,31 @@
 
     &:hover .name {
       filter: brightness(1.08);
+    }
+  }
+
+  .mode {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--tap);
+    padding: 0 var(--space-3);
+    border: 0;
+    border-radius: var(--radius-small);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    color: var(--text-muted);
+    font: 15px/1.1 var(--font-display);
+    white-space: nowrap;
+    scroll-snap-align: start;
+
+    &[aria-pressed='true'] {
+      color: var(--accent);
+    }
+
+    &:hover {
+      background: var(--surface-sunk);
+      color: var(--text);
     }
   }
 
@@ -165,6 +205,19 @@
       &:hover {
         background: var(--surface-sunk);
       }
+    }
+
+    :not(.optional) + .optional {
+      margin-top: var(--space-3);
+      border-top: 1px solid var(--rule);
+      padding-top: var(--space-2);
+    }
+
+    .mode {
+      width: 100%;
+      min-height: 36px;
+      box-shadow: none;
+      font-size: 14px;
     }
   }
 </style>

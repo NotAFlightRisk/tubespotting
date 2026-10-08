@@ -33,7 +33,8 @@ const FIRST_CALL = 15 * 60;
 
 export const cleanName = (name: string) =>
   name
-    .replace(/(\s+Underground Station|-Underground)$/i, '')
+    .replace(/(\s+(?:Underground|Rail) Station|-Underground)$/i, '')
+    .replace(/\s*\(London\)|\s+ELL$/i, '')
     .replace(/\s*\((?:[^)]*(?:line|bakerloo|central|dist|h&c|circle))[^)]*\)/i, '')
     .trim();
 
@@ -61,7 +62,7 @@ export function stationNamed(name: string, line: LineId): number | null {
 
 function lookUp(name: string, line: LineId): number | null {
   const wanted = simplify(name.replace(/\s+Platform\s+\S+$/i, ''));
-  const exact = byName.get(wanted);
+  const exact = byName.get(wanted) ?? byName.get(wanted.replace(/^london /, ''));
   const loose =
     exact ??
     [...byName]

@@ -22,7 +22,7 @@
 
   interface Props {
     live: Live;
-    focus: Pick<Focus, 'line' | 'station' | 'train'>;
+    focus: Pick<Focus, 'shown' | 'line' | 'station' | 'train'>;
     follow: boolean;
     inset: { left: number; bottom: number };
     label: string;
@@ -35,7 +35,8 @@
 
   const calm = new MediaQuery('prefers-reduced-motion: reduce');
   const dark = new MediaQuery('prefers-color-scheme: dark');
-  const LONDON = { x0: -42_000, y0: -28_000, x1: 38_000, y1: 22_000 };
+  // out to Reading, so the Elizabeth line fits
+  const LONDON = { x0: -66_000, y0: -28_000, x1: 38_000, y1: 22_000 };
   // roughly zones 1 and 2, or just zone 1 on a phone
   const START = (wide: boolean) => [
     { x: wide ? -8_000 : -3_800, y: wide ? -5_500 : -3_000 },
@@ -150,7 +151,7 @@
       fading = { from: fading.to, to: focus.line, since: performance.now() };
       outgoing = labels;
     }
-    void [focus.station, focus.train];
+    void [focus.shown, focus.station, focus.train];
     dirty = true;
   });
 

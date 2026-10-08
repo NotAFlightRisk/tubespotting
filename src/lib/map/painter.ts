@@ -1,5 +1,5 @@
 import type { Tracked } from '#lib/fleet.js';
-import { LINE_IDS, type LineId } from '#lib/lines.js';
+import { LINES, type LineId } from '#lib/lines.js';
 import {
   routeGraph,
   stations,
@@ -7,7 +7,8 @@ import {
   thames,
   tracks,
   type Point,
-  type Station
+  type Station,
+  type Track
 } from '#lib/network.js';
 import { labelSize, lineWidth, toScreen, visible, type View } from './view.js';
 
@@ -22,6 +23,8 @@ export interface Palette {
 }
 
 export interface Focus {
+  /** Lines on the map at all */
+  shown: Set<LineId>;
   line: LineId | null;
   /** The line focused before, and how far (0 to 1) the fade from it has got */
   previous: LineId | null;
@@ -53,48 +56,77 @@ const lineAlpha = (focus: Focus, line: LineId) =>
 const stationAlpha = (focus: Focus, station: Station) =>
   mix(focus, (picked) => (picked && !station.lines.includes(picked) ? FADED : 1));
 
-// the ends of each line, which always get named when that line is picked out
-const termini = new Set(
-  [...routeGraph.values()].flatMap((graph) =>
-    [...graph].filter(([, next]) => next.size === 1).map(([station]) => station)
-  )
-);
+interface Layout {
+  /** Each station's lines that are on show */
+  lines: LineId[][];
+  termini: Set<number>;
+  labelGroups: { name: string; members: Station[]; lines: Set<LineId>; x: number; y: number }[];
+  hubs: Station[][];
+  interchanges: Set<number>;
+  tickTrack: Map<number, Track | undefined>;
+}
 
-// a hub's stations that share a name get one label between them
-const labelGroups = (() => {
+const layouts = new Map<string, Layout>();
+
+/** Rings, ticks and labels for whichever lines are on show, worked out once per mix */
+function layoutFor(shown: Set<LineId>): Layout {
+  const key = [...shown].sort().join();
+  if (layouts.has(key)) return layouts.get(key)!;
+  const lines = stations.map((s) => s.lines.filter((line) => shown.has(line)));
+  const showing = stations.filter((s) => lines[s.index].length);
+
+  // the ends of each line, which always get named when that line is picked out
+  const termini = new Set(
+    [...routeGraph]
+      .filter(([line]) => shown.has(line))
+      .flatMap(([, graph]) =>
+        [...graph].filter(([, next]) => next.size === 1).map(([station]) => station)
+      )
+  );
+
+  // a hub's stations that share a name get one label between them
   const groups = new Map<string, Station[]>();
-  for (const station of stations) {
+  for (const station of showing) {
     const key = `${station.hub ?? station.id}|${station.name}`;
     groups.set(key, [...(groups.get(key) ?? []), station]);
   }
-  return [...groups.values()].map((members) => ({
+  const labelGroups = [...groups.values()].map((members) => ({
     name: members[0].name,
     members,
-    lines: new Set(members.flatMap((m) => m.lines)),
+    lines: new Set(members.flatMap((m) => lines[m.index])),
     x: members.reduce((sum, m) => sum + m.x, 0) / members.length,
     y: members.reduce((sum, m) => sum + m.y, 0) / members.length
   }));
-})();
 
-const hubs = (() => {
   const byHub = new Map<string, Station[]>();
-  for (const station of stations) {
+  for (const station of showing) {
     if (station.hub) byHub.set(station.hub, [...(byHub.get(station.hub) ?? []), station]);
   }
-  return [...byHub.values()].filter((members) => members.length > 1);
-})();
+  const hubs = [...byHub.values()].filter((members) => members.length > 1);
 
-const interchanges = new Set(
-  stations.filter((s) => s.lines.length > 1 || hubs.some((m) => m.includes(s))).map((s) => s.index)
-);
+  const interchanges = new Set(
+    showing
+      .filter((s) => lines[s.index].length > 1 || hubs.some((m) => m.includes(s)))
+      .map((s) => s.index)
+  );
 
-// the track a one-line station's tick hangs off
-const tickTrack = new Map(
-  stations.map((s) => [
-    s.index,
-    tracks.find((t) => t.lines.includes(s.lines[0]) && (t.a === s.index || t.b === s.index))
-  ])
-);
+  // the track a one-line station's tick hangs off
+  const tickTrack = new Map(
+    showing.map((s) => [
+      s.index,
+      tracks.find(
+        (t) => t.lines.includes(lines[s.index][0]) && (t.a === s.index || t.b === s.index)
+      )
+    ])
+  );
+
+  const layout = { lines, termini, labelGroups, hubs, interchanges, tickTrack };
+  layouts.set(key, layout);
+  return layout;
+}
+
+// the other railways go underneath, so the tube reads the same with them on
+const DRAW_ORDER = [...LINES].sort((a, b) => Number(a.mode === 'tube') - Number(b.mode === 'tube'));
 
 // does the segment's box overlap the screen, so long tracks crossing it still get drawn
 const crosses = (view: View, a: Point, b: Point, margin = 20) =>
@@ -125,7 +157,8 @@ function drawRiver(ctx: CanvasRenderingContext2D, view: View, palette: Palette) 
 function drawTracks(ctx: CanvasRenderingContext2D, view: View, palette: Palette, focus: Focus) {
   const width = lineWidth(view.k);
   ctx.lineWidth = width;
-  for (const line of LINE_IDS) {
+  for (const { id: line } of DRAW_ORDER) {
+    if (!focus.shown.has(line)) continue;
     ctx.globalAlpha = lineAlpha(focus, line);
     ctx.strokeStyle = palette.lines[line];
     ctx.beginPath();
@@ -153,6 +186,7 @@ function drawStations(
   const width = lineWidth(view.k);
   const ring = Math.max(1.2, width * 0.42);
   const showTicks = view.k > 0.018;
+  const { lines, hubs, interchanges, tickTrack } = layoutFor(focus.shown);
 
   for (const members of hubs) {
     const points = members.map((m) => toScreen(view, m));
@@ -171,10 +205,10 @@ function drawStations(
 
   for (const station of stations) {
     const p = toScreen(view, station);
-    if (!visible(view, p)) continue;
+    if (!lines[station.index].length || !visible(view, p)) continue;
     ctx.globalAlpha = stationAlpha(focus, station);
     if (interchanges.has(station.index)) {
-      const radius = Math.max(width * 0.95, (station.lines.length * width) / 2 + ring);
+      const radius = Math.max(width * 0.95, (lines[station.index].length * width) / 2 + ring);
       ctx.fillStyle = palette.ringFill;
       ctx.strokeStyle = palette.ring;
       ctx.lineWidth = ring;
@@ -184,7 +218,7 @@ function drawStations(
       ctx.stroke();
       hits.set(station.index, { ...p, radius: radius + 6 });
     } else {
-      const line = station.lines[0];
+      const line = lines[station.index][0];
       const track = tickTrack.get(station.index);
       if (showTicks && track) {
         const { slot, normal } = strand(track.a, track.b, line);
@@ -213,7 +247,7 @@ interface Box {
   h: number;
 }
 
-const runsAcross = (index: number) => {
+const runsAcross = ({ tickTrack }: Layout, index: number) => {
   const track = tickTrack.get(index);
   if (!track) return false;
   const [a, b] = [stations[track.a], stations[track.b]];
@@ -232,6 +266,8 @@ function placeLabels(
   const labels: Label[] = [];
   const size = labelSize(view.k) - (focus.line ? 1 : 0);
   const width = lineWidth(view.k);
+  const layout = layoutFor(focus.shown);
+  const { interchanges, labelGroups, termini } = layout;
   ctx.font = `${size}px ${FONT}`;
   // interchange rings stay readable, so labels go round the ones still in view
   const placed: Box[] = [...interchanges].flatMap((index) => {
@@ -272,7 +308,7 @@ function placeLabels(
     ];
     // like the printed map, names sit beside a line running up the page and above one running across
     const options: (Box & { align: CanvasTextAlign })[] = [
-      ...(runsAcross(group.members[0].index) ? [...over, ...beside] : [...beside, ...over]),
+      ...(runsAcross(layout, group.members[0].index) ? [...over, ...beside] : [...beside, ...over]),
       { x: anchor.x + lean, y: anchor.y - lean - size, w, h: size, align: 'left' },
       { x: anchor.x + lean, y: anchor.y + lean, w, h: size, align: 'left' },
       { x: anchor.x - lean - w, y: anchor.y - lean - size, w, h: size, align: 'right' },
@@ -355,6 +391,7 @@ export function paintTrains(
 
   for (const train of trains) {
     const { shown, reading } = train;
+    if (!focus.shown.has(reading.line)) continue;
     const base = toScreen(view, shown);
     const p = { x: base.x + shown.ox * width, y: base.y + shown.oy * width };
     if (!visible(view, p)) continue;
