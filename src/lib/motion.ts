@@ -31,6 +31,7 @@ export interface Placement extends Point {
 export type Runs = Map<string, number>;
 
 const dwellFor = (gap: number) => Math.min(30, gap * 0.3);
+const MIN_RUN = 5;
 
 export function measureRuns(trains: TrainReading[]): Runs {
   const gaps = new Map<string, number[]>();
@@ -70,19 +71,24 @@ export function schedule(train: TrainReading, at: number, runs: Runs = new Map()
   const start = at / 1000;
   const [first, firstEta] = train.stops[0];
   const legs: Leg[] = [];
+  const standing = /^At /i.test(train.where);
+  const known = train.from !== null && pathBetween(train.line, train.from, first) !== null;
   const before =
-    train.from !== null && train.from !== first && pathBetween(train.line, train.from, first)
-      ? train.from
-      : approachTo(train.line, first, train.stops[1]?.[0] ?? train.dest ?? undefined);
+    train.from === first
+      ? null
+      : known
+        ? train.from
+        : approachTo(train.line, first, train.stops[1]?.[0] ?? train.dest ?? undefined);
   if (before !== null) {
     const live = runs.get(`${train.line}:${before}>${first}`);
     const run = live ? live - dwellFor(live) : runTime(train.line, before, first);
-    legs.push({
-      from: before,
-      to: first,
-      depart: start + firstEta - run,
-      arrive: start + firstEta
-    });
+    const arrive = start + firstEta;
+    // TfL saying it's still at the platform beats an ETA that says it's long gone
+    const depart =
+      standing && before === train.from
+        ? Math.min(Math.max(arrive - run, start), arrive - MIN_RUN)
+        : arrive - run;
+    legs.push({ from: before, to: first, depart, arrive });
   }
   for (let i = 1; i < train.stops.length; i++) {
     const [from, leaves] = train.stops[i - 1];
@@ -144,6 +150,6 @@ export function locate(line: LineId, legs: Leg[], fallback: number, t: number): 
   if (!leg) return standing(line, fallback, fallback);
   if (t < leg.depart) return standing(line, leg.from, leg.to);
   const path = pathBetween(line, leg.from, leg.to) ?? [leg.from, leg.to];
-  const progress = Math.min(1, (t - leg.depart) / (leg.arrive - leg.depart));
+  const progress = Math.min(1, (t - leg.depart) / Math.max(leg.arrive - leg.depart, MIN_RUN));
   return { ...along(line, path, ease(progress)), at: progress === 1 ? leg.to : null };
 }
