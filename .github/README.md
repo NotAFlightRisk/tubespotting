@@ -37,6 +37,7 @@ Just open [tubespotting.peng.ly](https://tubespotting.peng.ly/) and drag/ pinch 
 - Tap a station for its next trains, platform by platform, on a countdown board
 - Tap a train to see where it's off to and follow it across London
 - Search (or just press `/`) finds any station or line, and the locate button opens your nearest station. Your location never leaves your device
+- The Elizabeth line and Overground can go on too, from the end of the line list
 
 A line or station ends up in the URL, so `?line=victoria` or `?station=940GZZLUOXC` is a link you can share.
 

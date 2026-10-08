@@ -10,7 +10,7 @@
   import Search from '#lib/components/Search.svelte';
   import StationDetail from '#lib/components/StationDetail.svelte';
   import TrainDetail from '#lib/components/TrainDetail.svelte';
-  import { isLineId, lineById, type LineId } from '#lib/lines.js';
+  import { isLineId, isModeId, lineById, linesIn, type LineId, type ModeId } from '#lib/lines.js';
   import { Live } from '#lib/live.svelte.js';
   import TubeMap, { type Tap } from '#lib/map/TubeMap.svelte';
   import { description, site, title } from '#lib/meta.js';
@@ -27,7 +27,9 @@
   const wide = new MediaQuery('min-width: 960px');
   const STALE_SECONDS = 90;
   const NEARBY_KM = 3;
+  const SAVED = 'tubespotting:modes';
 
+  let extras = $state<ModeId[]>([]);
   let selection = $state<Selection>(null);
   let follow = $state(false);
   let searching = $state(false);
@@ -40,7 +42,9 @@
   let map: TubeMap;
   let routed = false;
 
+  const shown = $derived(linesIn(['tube', ...extras]));
   const focus = $derived({
+    shown,
     line: selection?.kind === 'line' ? selection.id : null,
     station: selection?.kind === 'station' ? selection.index : null,
     train: selection?.kind === 'train' ? selection.key : null
@@ -53,7 +57,9 @@
   );
   const running = $derived.by(() => {
     void live.snapshot;
-    return [...live.fleet.trains.values()].filter((train) => !train.gone);
+    return [...live.fleet.trains.values()].filter(
+      (train) => !train.gone && shown.has(train.reading.line)
+    );
   });
   const counts = $derived.by(() => {
     const counts = new Map<LineId, number>();
@@ -79,7 +85,23 @@
     return selection?.kind === 'train' ? live.fleet.trains.get(selection.key) : undefined;
   });
 
+  function toggle(mode: ModeId) {
+    extras = extras.includes(mode) ? extras.filter((m) => m !== mode) : [...extras, mode];
+    try {
+      localStorage.setItem(SAVED, JSON.stringify(extras));
+    } catch {
+      // private browsing, so it's just forgotten next visit
+    }
+  }
+
+  // a link to a line or station that's switched off switches it on
+  function reveal(line: LineId) {
+    const { mode } = lineById(line)!;
+    if (!shown.has(line)) extras = [...extras, mode];
+  }
+
   function pickLine(id: LineId) {
+    reveal(id);
     selection = { kind: 'line', id };
     follow = searching = false;
     map.flyTo(
@@ -118,10 +140,12 @@
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
         const here = (you = project(coords.longitude, coords.latitude));
-        const [nearest] = [...stations].sort((a, b) => distance(here, a) - distance(here, b));
+        const [nearest] = stations
+          .filter((s) => s.lines.some((line) => shown.has(line)))
+          .sort((a, b) => distance(here, a) - distance(here, b));
         const km = distance(here, nearest) / 1000;
         if (km < NEARBY_KM) return pickStation(nearest.index);
-        notice = `You're ${Math.round(km)} km from the nearest Tube station`;
+        notice = `You're ${Math.round(km)} km from the nearest station`;
         map.flyTo([here, nearest], 0.06);
       },
       () => (notice = "Couldn't get your location"),
@@ -148,10 +172,19 @@
   afterNavigate(() => (routed = true));
 
   onMount(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SAVED) ?? '[]');
+      if (Array.isArray(saved)) extras = saved.filter((mode) => mode !== 'tube' && isModeId(mode));
+    } catch {
+      // nothing saved, or nothing we can read
+    }
     const line = page.url.searchParams.get('line');
     const station = stationById.get(page.url.searchParams.get('station') ?? '');
     if (line && isLineId(line)) pickLine(line);
-    else if (station) pickStation(station.index);
+    else if (station) {
+      reveal(station.lines[0]);
+      pickStation(station.index);
+    }
 
     live.start();
     const tick = setInterval(() => (now = Date.now()), 1000);
@@ -232,6 +265,7 @@
       {#if searching}
         <div class="finder">
           <Search
+            {shown}
             onpickstation={pickStation}
             onpickline={pickLine}
             onclose={() => {
@@ -261,6 +295,7 @@
         {:else if selection.kind === 'station'}
           <StationDetail
             station={stations[selection.index]}
+            {shown}
             snapshot={live.snapshot}
             {now}
             keyOf={(reading) => keys.get(reading)}
@@ -280,7 +315,14 @@
         {/if}
       </section>
     {:else}
-      <Board status={live.snapshot?.status ?? []} {counts} onpick={pickLine} />
+      <Board
+        status={live.snapshot?.status ?? []}
+        {counts}
+        {shown}
+        {extras}
+        onpick={pickLine}
+        ontoggle={toggle}
+      />
       <p class="caveat">
         TfL only says when trains are due, so where they sit between stations is a good guess.
       </p>

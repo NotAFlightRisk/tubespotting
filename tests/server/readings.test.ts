@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { stations } from '#lib/network.js';
 import { lastStation, Platforms, readStatus, readTrains } from '#lib/server/readings.js';
 import { AT, call, index } from '../helpers.js';
 
@@ -23,6 +24,28 @@ describe('readTrains', () => {
       [index('940GZZLUSKW'), 60],
       [index('940GZZLUVXL'), 200],
       [index('940GZZLUPCO'), 290]
+    ]);
+  });
+
+  it('reads an Elizabeth line train by its mainline station names', () => {
+    const elizabeth = {
+      lineId: 'elizabeth',
+      vehicleId: '202610086735292',
+      destinationName: 'London Liverpool Street Rail Station',
+      currentLocation: ''
+    };
+    const [train, ...rest] = read([
+      call('910GGODMAYS', 257, elizabeth),
+      call('910GCHDWLHT', 137, elizabeth),
+      call('910GSVNKNGS', 377, elizabeth)
+    ]);
+    expect(rest).toEqual([]);
+    expect(train.to).toBe('London Liverpool Street');
+    expect(stations[train.dest!].name).toBe('Liverpool Street');
+    expect(stopsOf(train)).toEqual([
+      [index('910GCHDWLHT'), 137],
+      [index('910GGODMAYS'), 257],
+      [index('910GSVNKNGS'), 377]
     ]);
   });
 
@@ -160,7 +183,7 @@ describe('readStatus', () => {
           }
         ]
       },
-      { id: 'elizabeth', lineStatuses: [] }
+      { id: 'dlr', lineStatuses: [] }
     ]);
     expect(rest).toEqual([]);
     expect(status).toEqual({

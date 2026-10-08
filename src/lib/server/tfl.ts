@@ -1,5 +1,5 @@
 import { TFL_APP_KEY } from '$app/env/private';
-import { LINE_IDS } from '#lib/lines.js';
+import { LINE_IDS, MODES } from '#lib/lines.js';
 import type { Snapshot } from '#lib/types.js';
 import { Platforms, readStatus, readTrains, type Prediction } from './readings.js';
 
@@ -30,7 +30,11 @@ async function refresh() {
   const wantStatus = !current || Date.now() - statusAt > STATUS_EVERY;
   const [arrivals, status] = await Promise.allSettled([
     get<Prediction[]>(`/Line/${LINE_IDS.join(',')}/Arrivals`),
-    wantStatus ? get<Parameters<typeof readStatus>[0]>('/Line/Mode/tube/Status') : null
+    wantStatus
+      ? get<Parameters<typeof readStatus>[0]>(
+          `/Line/Mode/${MODES.map((m) => m.id).join(',')}/Status`
+        )
+      : null
   ]);
   const told = status.status === 'fulfilled' && Array.isArray(status.value);
   if (told) statusAt = Date.now();

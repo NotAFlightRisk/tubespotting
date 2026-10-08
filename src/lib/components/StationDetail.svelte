@@ -1,18 +1,19 @@
 <script lang="ts">
-  import { lineById } from '#lib/lines.js';
+  import { lineById, type LineId } from '#lib/lines.js';
   import { stations, type Station } from '#lib/network.js';
   import { minutes } from '#lib/status.js';
   import type { Snapshot, TrainReading } from '#lib/types.js';
 
   interface Props {
     station: Station;
+    shown: Set<LineId>;
     snapshot: Snapshot | null;
     now: number;
     keyOf: (reading: TrainReading) => string | undefined;
     onpicktrain: (key: string) => void;
   }
 
-  let { station, snapshot, now, keyOf, onpicktrain }: Props = $props();
+  let { station, shown, snapshot, now, keyOf, onpicktrain }: Props = $props();
 
   const PER_PLATFORM = 4;
   const time = new Intl.DateTimeFormat('en-GB', { timeStyle: 'medium', timeZone: 'Europe/London' });
@@ -32,21 +33,27 @@
     )
   );
   const lines = $derived([
-    ...new Set(stations.filter((s) => here.has(s.index)).flatMap((s) => s.lines))
+    ...new Set(
+      stations
+        .filter((s) => here.has(s.index))
+        .flatMap((s) => s.lines.filter((line) => shown.has(line)))
+    )
   ]);
 
   const platforms = $derived.by(() => {
     if (!snapshot) return [];
-    const rows = snapshot.trains.flatMap((train) =>
-      train.stops
-        .filter(([stop]) => here.has(stop))
-        .slice(0, 1)
-        .map(([, eta, platform]) => ({
-          train,
-          platform: (snapshot.platforms[platform] || 'Platform').replace(/\s+-\s+/, ' · '),
-          due: (snapshot.at + eta * 1000 - now) / 1000
-        }))
-    );
+    const rows = snapshot.trains
+      .filter((train) => shown.has(train.line))
+      .flatMap((train) =>
+        train.stops
+          .filter(([stop]) => here.has(stop))
+          .slice(0, 1)
+          .map(([, eta, platform]) => ({
+            train,
+            platform: (snapshot.platforms[platform] || 'Platform').replace(/\s+-\s+/, ' · '),
+            due: (snapshot.at + eta * 1000 - now) / 1000
+          }))
+      );
     const grouped = new Map<string, typeof rows>();
     for (const row of rows.filter((r) => r.due > -30).sort((a, b) => a.due - b.due)) {
       const key = `${row.train.line}|${row.platform}`;

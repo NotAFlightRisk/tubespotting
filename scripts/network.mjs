@@ -13,7 +13,14 @@ const LINES = [
   'northern',
   'piccadilly',
   'victoria',
-  'waterloo-city'
+  'waterloo-city',
+  'elizabeth',
+  'liberty',
+  'lioness',
+  'mildmay',
+  'suffragette',
+  'weaver',
+  'windrush'
 ];
 const DIRECTIONS = ['inbound', 'outbound'];
 const OUT = new URL('../src/lib/data/network.json', import.meta.url);
@@ -43,7 +50,8 @@ async function tfl(path, params = {}) {
 
 export const cleanName = (name) =>
   name
-    .replace(/(\s+Underground Station|-Underground)$/i, '')
+    .replace(/(\s+(?:Underground|Rail) Station|-Underground)$/i, '')
+    .replace(/\s*\(London\)|\s+ELL$/i, '')
     .replace(/\s*\((?:[^)]*(?:line|bakerloo|central|dist|h&c|circle))[^)]*\)/i, '')
     .trim();
 
@@ -140,6 +148,14 @@ async function main() {
     const runs = Object.fromEntries([...observed].map(([key, gaps]) => [key, median(gaps)]));
     lines.push({ id: lineId, routes, runs });
     console.log(`${lineId}: ${routes.length} routes, ${Object.keys(runs).length} timed segments`);
+  }
+
+  // the mainline's "London Euston" and "Queens Park" go by the tube's names, so labels merge
+  const plain = (name) => name.replace(/^London |'/g, '');
+  const tube = [...stations.values()].filter((s) => s.hub && s.id.startsWith('940GZZLU'));
+  for (const station of stations.values()) {
+    const twin = tube.find((s) => s.hub === station.hub && plain(s.name) === plain(station.name));
+    if (twin) station.name = twin.name;
   }
 
   const ids = [...stations.keys()];

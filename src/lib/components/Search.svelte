@@ -1,15 +1,16 @@
 <script lang="ts">
   import { LINES, type LineId } from '#lib/lines.js';
-  import { stations } from '#lib/network.js';
+  import { stations, type Station } from '#lib/network.js';
   import Icon from './Icon.svelte';
 
   interface Props {
+    shown: Set<LineId>;
     onpickstation: (index: number) => void;
     onpickline: (line: LineId) => void;
     onclose: () => void;
   }
 
-  let { onpickstation, onpickline, onclose }: Props = $props();
+  let { shown, onpickstation, onpickline, onclose }: Props = $props();
 
   type Result = {
     kind: 'station' | 'line';
@@ -20,21 +21,34 @@
   };
 
   const LIMIT = 8;
-  const everything: Result[] = [
-    ...LINES.map((line) => ({
-      kind: 'line' as const,
-      id: line.id,
-      label: `${line.name} line`,
-      detail: 'Line'
-    })),
-    ...[...new Map(stations.map((s) => [`${s.hub ?? s.id}|${s.name}`, s])).values()].map((s) => ({
-      kind: 'station' as const,
-      id: s.id,
-      label: s.name,
-      detail: s.lines.map((id) => LINES.find((l) => l.id === id)!.name).join(', '),
-      index: s.index
-    }))
-  ];
+  const everything: Result[] = $derived.by(() => {
+    const lines = LINES.filter((line) => shown.has(line.id));
+    // a hub's stations that share a name are one result, listing every line between them
+    const places = new Map<string, Station[]>();
+    for (const s of stations) {
+      if (!s.lines.some((line) => shown.has(line))) continue;
+      const key = `${s.hub ?? s.id}|${s.name}`;
+      places.set(key, [...(places.get(key) ?? []), s]);
+    }
+    return [
+      ...lines.map((line) => ({
+        kind: 'line' as const,
+        id: line.id,
+        label: `${line.name} line`,
+        detail: 'Line'
+      })),
+      ...[...places.values()].map((members) => ({
+        kind: 'station' as const,
+        id: members[0].id,
+        label: members[0].name,
+        detail: lines
+          .filter((line) => members.some((s) => s.lines.includes(line.id)))
+          .map((line) => line.name)
+          .join(', '),
+        index: members[0].index
+      }))
+    ];
+  });
 
   let query = $state('');
   let active = $state(0);
