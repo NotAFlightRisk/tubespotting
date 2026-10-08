@@ -1,5 +1,5 @@
 import { isLineId, type LineId } from '#lib/lines.js';
-import { pathBetween, stationById, stations, travelTime } from '#lib/network.js';
+import { callsApart, stationById, stations, travelTime } from '#lib/network.js';
 import type { LineStatus, Stop, TrainReading } from '#lib/types.js';
 
 export interface Prediction {
@@ -50,8 +50,16 @@ for (const station of stations) {
   byName.set(key, [...(byName.get(key) ?? []), station.index]);
 }
 
+const named = new Map<string, number | null>();
+
 /** Which station TfL's free-text location names, preferring ones on the train's own line */
 export function stationNamed(name: string, line: LineId): number | null {
+  const key = `${line}|${name}`;
+  if (!named.has(key)) named.set(key, lookUp(name, line));
+  return named.get(key)!;
+}
+
+function lookUp(name: string, line: LineId): number | null {
   const wanted = simplify(name.replace(/\s+Platform\s+\S+$/i, ''));
   const exact = byName.get(wanted);
   const loose =
@@ -95,20 +103,27 @@ function toCalls(line: LineId, predictions: Prediction[], at: number): Call[] {
     .sort((a, b) => a.eta - b.eta);
 }
 
-const hops = (line: LineId, from: number, to: number) => {
-  const path = pathBetween(line, from, to);
-  return path ? path.length - 1 : Infinity;
-};
+interface Chain {
+  calls: Call[];
+  dest: number | null;
+}
+
+// the Circle runs round its loop to get where it's going, so "closer" means nothing there
+const LOOPS = new Set<LineId>(['circle']);
 
 /** How far off a call is from where this train could be by then, or null if it can't be */
-function misfit(line: LineId, dest: number | null, train: Call[], call: Call): number | null {
-  const [before, last] = [train.at(-2), train.at(-1)!];
-  if (train.some((c) => c.station === call.station)) return null;
-  if (hops(line, last.station, call.station) > MAX_HOPS) return null;
-  // onwards, not back the way it came, or towards its destination when that's all there is
+function misfit(line: LineId, chain: Chain, call: Call): number | null {
+  const [before, last] = [chain.calls.at(-2), chain.calls.at(-1)!];
+  if (chain.calls.some((c) => c.station === call.station)) return null;
+  const step = callsApart(line, last.station, call.station);
+  if (step > MAX_HOPS) return null;
+  // on through the last call rather than back the way it came, or towards its destination
   const onwards = before
-    ? hops(line, before.station, call.station) > hops(line, before.station, last.station)
-    : dest === null || hops(line, call.station, dest) < hops(line, last.station, dest);
+    ? callsApart(line, before.station, last.station) + step ===
+      callsApart(line, before.station, call.station)
+    : chain.dest === null ||
+      LOOPS.has(line) ||
+      callsApart(line, call.station, chain.dest) < callsApart(line, last.station, chain.dest);
   if (!onwards) return null;
   const expected = travelTime(line, last.station, call.station);
   const taken = call.eta - last.eta;
@@ -116,24 +131,35 @@ function misfit(line: LineId, dest: number | null, train: Call[], call: Call): n
   return Math.abs(taken - expected);
 }
 
+const destinationIn = (line: LineId, call: Call) => {
+  const to = destinationOf(call.prediction);
+  return to ? stationNamed(to, line) : null;
+};
+
 /** Calls chain into trains stop by stop, each joining the train that could get there in time */
-function chains(line: LineId, dest: number | null, calls: Call[]): Call[][] {
-  const trains: Call[][] = [];
+function chains(line: LineId, calls: Call[], named: boolean): Call[][] {
+  const trains: Chain[] = [];
   for (const call of calls) {
+    // TfL repeats a call per platform, but a nameless one's location text gives it away
     const repeat = trains.some((train) =>
-      train.some((c) => c.station === call.station && Math.abs(call.eta - c.eta) < SAME_CALL)
+      train.calls.some(
+        (c) =>
+          c.station === call.station &&
+          Math.abs(call.eta - c.eta) < SAME_CALL &&
+          (named || c.prediction.currentLocation === call.prediction.currentLocation)
+      )
     );
     if (repeat) continue;
-    let home: Call[] | undefined;
+    let home: Chain | undefined;
     let best = Infinity;
     for (const train of trains) {
-      const off = misfit(line, dest, train, call);
+      const off = misfit(line, train, call);
       if (off !== null && off < best) [home, best] = [train, off];
     }
-    if (home) home.push(call);
-    else trains.push([call]);
+    if (home) home.calls.push(call);
+    else trains.push({ calls: [call], dest: destinationIn(line, call) });
   }
-  return trains;
+  return trains.map((train) => train.calls);
 }
 
 function toReading(
@@ -142,9 +168,8 @@ function toReading(
   calls: Call[],
   platforms: Platforms
 ): TrainReading {
-  const head = calls[0].prediction;
-  const where = head.currentLocation?.trim() ?? '';
-  const to = destinationOf(head);
+  const where = calls[0].prediction.currentLocation?.trim() ?? '';
+  const to = calls.map((c) => destinationOf(c.prediction)).find(Boolean) ?? '';
   return {
     id,
     line,
@@ -156,18 +181,18 @@ function toReading(
   };
 }
 
-/** A train TfL lists twice, with an id and without, only counts once */
+/** A train TfL lists both with an id and without only counts once */
 function dedupe(trains: TrainReading[]): TrainReading[] {
-  const ranked = [...trains].sort(
-    (a, b) => Number(b.id !== null) - Number(a.id !== null) || b.stops.length - a.stops.length
-  );
-  const kept: TrainReading[] = [];
-  for (const train of ranked) {
+  const named = trains.filter((train) => train.id !== null);
+  const kept = [...named];
+  const nameless = trains
+    .filter((train) => train.id === null)
+    .sort((a, b) => b.stops.length - a.stops.length);
+  for (const train of nameless) {
     const [first, eta] = train.stops[0];
     const twin = kept.some(
       (other) =>
         other.line === train.line &&
-        other.to === train.to &&
         other.stops.some(([station, at]) => station === first && Math.abs(at - eta) <= SAME_TRAIN)
     );
     if (!twin) kept.push(train);
@@ -195,14 +220,13 @@ export function readTrains(
     if (!isLineId(prediction.lineId) || !prediction.naptanId) continue;
     const vehicle = prediction.vehicleId?.trim() ?? '';
     const anonymous = ANONYMOUS.test(vehicle);
-    const to = destinationOf(prediction);
     // nameless trains are told apart by timing alone, as TfL's location text varies per call
     const key = anonymous
-      ? `${prediction.lineId}|?|${to}`
-      : `${prediction.lineId}|${vehicle}|${to}`;
+      ? `${prediction.lineId}|?|${destinationOf(prediction)}`
+      : `${prediction.lineId}|${vehicle}`;
     const group = groups.get(key) ?? {
       line: prediction.lineId,
-      id: anonymous ? null : `${prediction.lineId}:${vehicle}:${to}`,
+      id: anonymous ? null : `${prediction.lineId}:${vehicle}`,
       predictions: []
     };
     group.predictions.push(prediction);
@@ -211,30 +235,41 @@ export function readTrains(
 
   const trains: TrainReading[] = [];
   for (const { line, id, predictions: group } of groups.values()) {
-    const to = destinationOf(group[0]);
-    const dest = to ? stationNamed(to, line) : null;
-    chains(line, dest, toCalls(line, group, at)).forEach((train, i) => {
+    chains(line, toCalls(line, group, at), id !== null).forEach((train, i) => {
       if (train[0].eta > FIRST_CALL) return;
       trains.push(toReading(line, id && (i ? `${id}#${i}` : id), train, platforms));
     });
   }
-  return dedupe(trains.filter((train) => !isReturnTrip(train, trains)));
+  return dedupe(withoutReturnTrips(trains));
 }
 
 // TfL's id, or failing that where it says the train is, which is the same for all its calls
 const vehicleOf = (train: TrainReading) =>
-  train.id ? train.id.split(':').slice(0, 2).join(':') : `${train.line}|${train.where}`;
+  train.id ? train.id.split('#')[0] : `${train.line}|${train.where}`;
 
 /** A train's next trip back shows up too, starting where this one ends */
-const isReturnTrip = (train: TrainReading, all: TrainReading[]) =>
-  (train.id !== null || train.where !== '') &&
-  all.some(
-    (other) =>
-      other !== train &&
-      vehicleOf(other) === vehicleOf(train) &&
-      other.stops.at(-1)![1] <= train.stops[0][1] &&
-      hops(train.line, other.stops.at(-1)![0], train.stops[0][0]) <= 2
-  );
+function withoutReturnTrips(trains: TrainReading[]): TrainReading[] {
+  const byVehicle = new Map<string, TrainReading[]>();
+  for (const train of trains) {
+    if (train.id === null && !train.where) continue;
+    const vehicle = vehicleOf(train);
+    byVehicle.set(vehicle, [...(byVehicle.get(vehicle) ?? []), train]);
+  }
+  const returning = new Set<TrainReading>();
+  for (const trips of byVehicle.values()) {
+    for (const train of trips) {
+      const [start, leaves] = train.stops[0];
+      const follows = trips.some(
+        (other) =>
+          other !== train &&
+          other.stops.at(-1)![1] <= leaves &&
+          callsApart(train.line, other.stops.at(-1)![0], start) <= 2
+      );
+      if (follows) returning.add(train);
+    }
+  }
+  return trains.filter((train) => !returning.has(train));
+}
 
 interface RawStatus {
   id: string;
