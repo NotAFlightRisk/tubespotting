@@ -1,26 +1,38 @@
 <script lang="ts">
   import type { Tracked } from '#lib/fleet.js';
   import type { Line } from '#lib/lines.js';
-  import { tone, whereIs } from '#lib/status.js';
+  import { callsApart, stations } from '#lib/network.js';
+  import { count, minutes, tone, whereIs } from '#lib/status.js';
   import type { LineStatus } from '#lib/types.js';
 
   interface Props {
     line: Line;
     status: LineStatus | undefined;
     trains: Tracked[];
+    at: number;
+    now: number;
     onpicktrain: (key: string) => void;
   }
 
-  let { line, status, trains, onpicktrain }: Props = $props();
+  let { line, status, trains, at, now, onpicktrain }: Props = $props();
 
   const feeling = $derived(status ? tone(status.severity) : 'good');
-  const sorted = $derived(
-    [...trains].sort(
-      (a, b) =>
-        a.reading.to.localeCompare(b.reading.to) ||
-        whereIs(a.reading).localeCompare(whereIs(b.reading))
-    )
-  );
+
+  // one strip per destination, furthest from it first, so it reads in the direction of travel
+  const directions = $derived.by(() => {
+    const byDestination = new Map<string, Tracked[]>();
+    for (const train of trains) {
+      const to = train.reading.to || 'Check front of train';
+      byDestination.set(to, [...(byDestination.get(to) ?? []), train]);
+    }
+    const left = (train: Tracked) => {
+      const { dest, stops } = train.reading;
+      return dest === null ? 0 : callsApart(line.id, stops[0][0], dest);
+    };
+    return [...byDestination]
+      .map(([to, group]) => ({ to, trains: group.sort((a, b) => left(b) - left(a)) }))
+      .sort((a, b) => b.trains.length - a.trains.length || a.to.localeCompare(b.to));
+  });
 </script>
 
 <div
@@ -32,17 +44,25 @@
   <p class="status {feeling}">{status?.status ?? 'Checking the status'}</p>
   {#if status?.reason}<p class="reason">{status.reason}</p>{/if}
 
-  <h3>{trains.length} {trains.length === 1 ? 'train' : 'trains'} running</h3>
-  <ul class="trains">
-    {#each sorted as train (train.key)}
-      <li>
-        <button type="button" onclick={() => onpicktrain(train.key)}>
-          <span class="to">{train.reading.to || 'Check front of train'}</span>
-          <span class="where">{whereIs(train.reading)}</span>
-        </button>
-      </li>
-    {/each}
-  </ul>
+  <p class="total">{count(trains.length, 'train')} running</p>
+  {#each directions as direction (direction.to)}
+    <section aria-label="Trains to {direction.to}">
+      <h3>To {direction.to} <span>· {count(direction.trains.length, 'train')}</span></h3>
+      <ol class="strip">
+        {#each direction.trains as train (train.key)}
+          {@const [next, eta] = train.reading.stops[0]}
+          <li>
+            <button type="button" onclick={() => onpicktrain(train.key)}>
+              <span class="where">{whereIs(train, now)}</span>
+              <span class="next">
+                {stations[next].name} · {minutes((at + eta * 1000 - now) / 1000)}
+              </span>
+            </button>
+          </li>
+        {/each}
+      </ol>
+    </section>
+  {/each}
 </div>
 
 <style>
@@ -56,7 +76,7 @@
 
   .status {
     margin: var(--space-3) 0 0;
-    font-weight: 600;
+    font: 18px/1.2 var(--font-display);
 
     &.good {
       color: var(--good);
@@ -80,43 +100,80 @@
     color: var(--text-muted);
   }
 
-  h3 {
-    margin: var(--space-5) 0 var(--space-2);
-    font-size: 13px;
-    font-weight: 600;
+  .total {
+    margin: var(--space-4) 0 0;
     color: var(--text-muted);
+    font: 15px/1.3 var(--font-display);
   }
 
-  .trains {
-    display: grid;
-    gap: 2px;
+  h3 {
+    margin: var(--space-5) 0 var(--space-2);
+    font: 18px/1.2 var(--font-display);
+    color: var(--station-ink);
+
+    span {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+  }
+
+  .strip {
     margin: 0;
     padding: 0;
     list-style: none;
+
+    li {
+      position: relative;
+      padding-left: var(--space-5);
+
+      &::before {
+        content: '';
+        position: absolute;
+        left: 7px;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background: var(--line);
+      }
+
+      &::after {
+        content: '';
+        position: absolute;
+        left: 4px;
+        top: 50%;
+        width: 10px;
+        height: 16px;
+        translate: 0 -50%;
+        border: 1.5px solid var(--ring);
+        border-radius: 5px;
+        background: var(--line);
+      }
+    }
 
     button {
       display: grid;
       width: 100%;
       min-height: var(--tap);
-      padding: var(--space-2) var(--space-3);
+      padding: var(--space-1) var(--space-2);
       border: 0;
       border-radius: var(--radius-small);
-      background: var(--surface-sunk);
+      background: none;
       text-align: left;
 
       &:hover {
-        background: var(--rule);
+        background: var(--surface-sunk);
       }
     }
 
-    .to {
-      font: 16px/1.25 var(--font-display);
+    .where {
+      font: 15px/1.25 var(--font-display);
       color: var(--station-ink);
     }
 
-    .where {
+    .next {
       color: var(--text-muted);
       font-size: 13px;
+      font-variant-numeric: tabular-nums;
     }
   }
 </style>

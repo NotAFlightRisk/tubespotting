@@ -37,9 +37,11 @@
     style:--ink={line.id === 'northern' ? 'var(--paper)' : line.ink}
   >
     <header>
-      <p class="line">{line.name} line</p>
-      <h2>{train.reading.to ? `To ${train.reading.to}` : 'Check front of train'}</h2>
-      <p class="where">{whereIs(train.reading)}</p>
+      <h2>
+        <span class="line">{line.name}</span>
+        {train.reading.to ? `to ${train.reading.to}` : 'train, check the front for where to'}
+      </h2>
+      <p class="where">{whereIs(train, now)}</p>
     </header>
 
     <button type="button" class="follow" aria-pressed={follow} onclick={() => onfollow(!follow)}>
@@ -68,11 +70,10 @@
   }
 
   .line {
-    margin: 0;
-    padding: 2px var(--space-2);
+    padding: 0 var(--space-2);
     background: var(--line);
     color: var(--ink);
-    font: 14px/1.3 var(--font-display);
+    box-decoration-break: clone;
   }
 
   h2 {
@@ -98,7 +99,7 @@
     border-radius: 999px;
     background: none;
     color: var(--accent);
-    font-weight: 600;
+    font: 16px/1 var(--font-display);
 
     &[aria-pressed='true'] {
       background: var(--accent);

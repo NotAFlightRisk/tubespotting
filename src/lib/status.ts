@@ -1,5 +1,5 @@
 import { stations } from './network.js';
-import type { TrainReading } from './types.js';
+import type { Tracked } from './fleet.js';
 
 export type Tone = 'good' | 'warn' | 'bad' | 'closed';
 
@@ -13,11 +13,17 @@ export const tone = (severity: number): Tone =>
 export const minutes = (seconds: number) =>
   seconds < 30 ? 'Due' : `${Math.max(1, Math.round(seconds / 60))} min`;
 
-/** TfL's own words for where a train is, unless they're too vague to help */
-export function whereIs(train: TrainReading): string {
-  const next = stations[train.stops[0][0]].name;
-  if (!train.where || /^At Platform/i.test(train.where)) {
-    return train.stops[0][1] < 30 ? `At ${next}` : `On the way to ${next}`;
-  }
-  return train.where.replace(/\s+Platform\s+\S+$/i, '');
+/** Where the map has the train right now, in words, so the sheet and the map agree */
+export function whereIs({ legs, reading }: Tracked, now: number): string {
+  const t = now / 1000;
+  const leg = legs.find((l) => t < l.arrive);
+  const name = (index: number) => stations[index].name;
+  if (!leg) return `At ${name(legs.at(-1)?.to ?? reading.stops[0][0])}`;
+  if (t < leg.depart) return `At ${name(leg.from)}`;
+  const progress = (t - leg.depart) / (leg.arrive - leg.depart);
+  return progress > 0.8
+    ? `Approaching ${name(leg.to)}`
+    : `Between ${name(leg.from)} and ${name(leg.to)}`;
 }
+
+export const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;

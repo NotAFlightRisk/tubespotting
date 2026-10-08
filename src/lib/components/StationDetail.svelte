@@ -15,6 +15,9 @@
   let { station, snapshot, now, keyOf, onpicktrain }: Props = $props();
 
   const PER_PLATFORM = 4;
+  const time = new Intl.DateTimeFormat('en-GB', { timeStyle: 'medium', timeZone: 'Europe/London' });
+
+  const clock = $derived(time.format(now));
 
   // a hub's stations that share a name (both Paddingtons, say) share a board
   const here = $derived(
@@ -40,7 +43,7 @@
         .slice(0, 1)
         .map(([, eta, platform]) => ({
           train,
-          platform: snapshot.platforms[platform] || 'Platform',
+          platform: (snapshot.platforms[platform] || 'Platform').replace(/\s+-\s+/, ' · '),
           due: (snapshot.at + eta * 1000 - now) / 1000
         }))
     );
@@ -94,6 +97,7 @@
             </button>
           </li>
         {/each}
+        <li class="clock" aria-hidden="true">{clock}</li>
       </ol>
     </section>
   {/each}
@@ -147,15 +151,23 @@
     align-items: center;
     gap: var(--space-2);
     margin: 0;
-    font-size: 13px;
-    font-weight: 600;
+    font: 15px/1.2 var(--font-display);
     color: var(--text-muted);
 
     .swatch {
-      width: 4px;
-      height: 14px;
+      width: 14px;
+      height: 4px;
       background: var(--line);
     }
+  }
+
+  .countdown .clock {
+    padding-top: var(--space-1);
+    color: var(--board-ink);
+    font: 700 17px/1.2 var(--font-board);
+    text-align: center;
+    text-shadow: 0 0 6px rgb(255 176 0 / 0.45);
+    font-variant-numeric: tabular-nums;
   }
 
   .countdown {

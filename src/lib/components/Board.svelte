@@ -1,6 +1,6 @@
 <script lang="ts">
   import { LINES, type LineId } from '#lib/lines.js';
-  import { tone } from '#lib/status.js';
+  import { count, tone } from '#lib/status.js';
   import type { LineStatus } from '#lib/types.js';
 
   interface Props {
@@ -33,7 +33,7 @@
             <span class="dot" aria-hidden="true"></span>
             {state?.status ?? 'Checking'}
           </span>
-          <span class="count">{counts.get(line.id) ?? 0} trains</span>
+          <span class="count">{count(counts.get(line.id) ?? 0, 'train')}</span>
         </button>
       </li>
     {/each}
@@ -88,6 +88,7 @@
 
   .state {
     align-items: center;
+    font-family: var(--font-display);
     gap: var(--space-2);
     color: var(--text-muted);
 
@@ -133,7 +134,7 @@
     }
 
     .line {
-      grid-template-columns: 9.5rem 1fr auto;
+      grid-template-columns: 10rem 1fr auto;
       width: 100%;
       border-radius: 0;
       box-shadow: none;
@@ -145,9 +146,13 @@
         padding-inline: var(--space-3);
       }
 
+      .name {
+        font-size: 14px;
+      }
+
       .state {
         padding-block: 0;
-        font-size: inherit;
+        font-size: 14px;
       }
 
       .count {

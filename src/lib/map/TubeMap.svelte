@@ -18,16 +18,16 @@
   import { readPalette } from './palette.js';
   import { toWorld, type View } from './view.js';
 
-  export type Pick = { kind: 'train'; key: string } | { kind: 'station'; index: number } | null;
+  export type Tap = { kind: 'train'; key: string } | { kind: 'station'; index: number } | null;
 
   interface Props {
     live: Live;
-    focus: Focus;
+    focus: Pick<Focus, 'line' | 'station' | 'train'>;
     follow: boolean;
     inset: { left: number; bottom: number };
     label: string;
     you: Point | null;
-    onpick: (pick: Pick) => void;
+    onpick: (tap: Tap) => void;
     onwander: () => void;
   }
 
@@ -97,7 +97,7 @@
     return best;
   }
 
-  function pickAt(at: Point): Pick {
+  function pickAt(at: Point): Tap {
     const train = nearest(trainHits, at);
     if (train !== null) return { kind: 'train', key: train };
     const station = nearest(stationHits, at);
@@ -140,10 +140,21 @@
     dirty = true;
   });
 
+  // picking a line fades the rest back rather than cutting
+  let fading = { from: null as Focus['line'], to: null as Focus['line'], since: 0 };
+  const FADE_MS = 400;
+
   $effect(() => {
-    void [focus.line, focus.station, focus.train];
+    if (focus.line !== fading.to)
+      fading = { from: fading.to, to: focus.line, since: performance.now() };
+    void [focus.station, focus.train];
     dirty = true;
   });
+
+  const lensAt = (now: number): Focus => {
+    const progress = calm.current ? 1 : Math.min(1, (now - fading.since) / FADE_MS);
+    return { ...focus, previous: fading.from, fade: 1 - (1 - progress) ** 3 };
+  };
 
   onMount(() => {
     const baseCtx = base.getContext('2d')!;
@@ -183,8 +194,9 @@
     let frame = requestAnimationFrame(function tick(now) {
       frame = requestAnimationFrame(tick);
       const v = view();
+      const lens = lensAt(now);
       // far out, trains crawl a pixel a second, so there's no need for 60 frames of it
-      const busy = dirty || focus.train !== null;
+      const busy = dirty || lens.fade < 1 || focus.train !== null;
       const every = busy ? 0 : 1000 / clamp(v.k * 160, 12, 60);
       if (now - painted < every || !palette) return;
       const dt = Math.min(0.25, (now - last) / 1000);
@@ -200,17 +212,17 @@
         // the whole network repaints on every nudge, so ignore the sub-pixel ones
         if (Math.hypot(dx, dy) > 0.75) select(top).call(behaviour.translateBy, dx / v.k, dy / v.k);
       }
-      if (dirty) {
-        ({ hits: stationHits, labels } = paintNetwork(baseCtx, view(), palette, focus));
+      if (dirty || lens.fade < 1) {
+        ({ hits: stationHits, labels } = paintNetwork(baseCtx, view(), palette, lens));
         dirty = false;
       }
       trainHits = paintTrains(
         topCtx,
         view(),
         palette,
-        focus,
+        lens,
         live.fleet.trains.values(),
-        now / 260,
+        calm.current ? 0 : now / 260,
         you
       );
       paintLabels(topCtx, palette, labels);
