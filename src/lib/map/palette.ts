@@ -1,6 +1,9 @@
 import { LINES, type LineId } from '#lib/lines.js';
 import type { Palette } from './painter.js';
 
+// the lines too dark to see on the night map get a lighter strand there
+const NIGHT = new Set<LineId>(['northern', 'piccadilly', 'metropolitan']);
+
 /** Tokens hold light-dark(), which only resolves once it lands on a real property */
 export function readPalette(root: HTMLElement): Palette {
   const probe = document.createElement('span');
@@ -18,7 +21,7 @@ export function readPalette(root: HTMLElement): Palette {
     ringFill: read('--ring-fill'),
     halo: read('--accent'),
     lines: Object.fromEntries(
-      LINES.map((line) => [line.id, line.id === 'northern' ? read('--northern') : line.colour])
+      LINES.map((line) => [line.id, NIGHT.has(line.id) ? read(`--${line.id}`) : line.colour])
     ) as Record<LineId, string>
   };
   probe.remove();

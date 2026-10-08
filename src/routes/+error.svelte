@@ -9,8 +9,8 @@
 </svelte:head>
 
 <main class="lost">
-  <p class="board">{page.status}</p>
   <h1>{lost ? 'No trains call here' : 'Something went wrong'}</h1>
+  <p class="board">{page.status} · Not in service</p>
   <p>{lost ? "That page isn't on the map." : page.error?.message}</p>
   <a href="/">Back to the live map</a>
 </main>
