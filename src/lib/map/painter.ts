@@ -1,6 +1,14 @@
 import type { Tracked } from '#lib/fleet.js';
 import { LINE_IDS, type LineId } from '#lib/lines.js';
-import { stations, strand, thames, tracks, type Point, type Station } from '#lib/network.js';
+import {
+  routeGraph,
+  stations,
+  strand,
+  thames,
+  tracks,
+  type Point,
+  type Station
+} from '#lib/network.js';
 import { labelSize, lineWidth, toScreen, visible, type View } from './view.js';
 
 export interface Palette {
@@ -15,6 +23,9 @@ export interface Palette {
 
 export interface Focus {
   line: LineId | null;
+  /** The line focused before, and how far (0 to 1) the fade from it has got */
+  previous: LineId | null;
+  fade: number;
   station: number | null;
   train: string | null;
 }
@@ -33,7 +44,21 @@ const FADED = 0.16;
 const RIVER_METRES = 230;
 const FONT = '"Hammersmith One", system-ui, sans-serif';
 
-const lineAlpha = (focus: Focus, line: LineId) => (focus.line && focus.line !== line ? FADED : 1);
+const mix = (focus: Focus, alpha: (line: LineId | null) => number) =>
+  alpha(focus.previous) + (alpha(focus.line) - alpha(focus.previous)) * focus.fade;
+
+const lineAlpha = (focus: Focus, line: LineId) =>
+  mix(focus, (picked) => (picked && picked !== line ? FADED : 1));
+
+const stationAlpha = (focus: Focus, station: Station) =>
+  mix(focus, (picked) => (picked && !station.lines.includes(picked) ? FADED : 1));
+
+// the ends of each line, which always get named when that line is picked out
+const termini = new Set(
+  [...routeGraph.values()].flatMap((graph) =>
+    [...graph].filter(([, next]) => next.size === 1).map(([station]) => station)
+  )
+);
 
 // a hub's stations that share a name get one label between them
 const labelGroups = (() => {
@@ -147,8 +172,7 @@ function drawStations(
   for (const station of stations) {
     const p = toScreen(view, station);
     if (!visible(view, p)) continue;
-    const dim = focus.line && !station.lines.includes(focus.line);
-    ctx.globalAlpha = dim ? FADED : 1;
+    ctx.globalAlpha = stationAlpha(focus, station);
     if (interchanges.has(station.index)) {
       const radius = Math.max(width * 0.95, (station.lines.length * width) / 2 + ring);
       ctx.fillStyle = palette.ringFill;
@@ -202,21 +226,22 @@ function placeLabels(
   const size = labelSize(view.k);
   const width = lineWidth(view.k);
   ctx.font = `${size}px ${FONT}`;
-  // interchange rings stay readable, so labels go round them
+  // interchange rings stay readable, so labels go round the ones still in view
   const placed: Box[] = [...interchanges].flatMap((index) => {
     const hit = hits.get(index);
-    const r = hit ? hit.radius - 6 : 0;
-    return hit ? [{ x: hit.x - r, y: hit.y - r, w: r * 2, h: r * 2 }] : [];
+    if (!hit || (focus.line && !stations[index].lines.includes(focus.line))) return [];
+    const r = hit.radius - 6;
+    return [{ x: hit.x - r, y: hit.y - r, w: r * 2, h: r * 2 }];
   });
   const wanted = labelGroups
     .map((group) => {
       const focused = group.members.some((m) => m.index === focus.station);
       const onLine = focus.line ? group.lines.has(focus.line) : true;
-      const weight = focused ? 100 : group.lines.size + (onLine && focus.line ? 10 : 0);
-      const threshold = focused
-        ? 0
-        : focus.line && onLine
-          ? 0.012
+      const end = group.members.some((m) => termini.has(m.index));
+      const weight = focused ? 100 : group.lines.size + (focus.line ? (end ? 40 : 10) : 0);
+      const threshold =
+        focused || (focus.line && onLine)
+          ? 0
           : [0.06, 0.03, 0.016][Math.min(group.lines.size, 3) - 1];
       return { group, weight, show: view.k >= threshold && (onLine || focused) };
     })
@@ -229,11 +254,16 @@ function placeLabels(
     const text = group.name;
     const w = ctx.measureText(text).width;
     const gap = width * Math.max(1.4, group.lines.size * 0.6) + 4;
+    const lean = gap * 0.7;
     const options: (Box & { align: CanvasTextAlign })[] = [
       { x: anchor.x + gap, y: anchor.y - size / 2, w, h: size, align: 'left' },
       { x: anchor.x - gap - w, y: anchor.y - size / 2, w, h: size, align: 'right' },
       { x: anchor.x - w / 2, y: anchor.y - gap - size, w, h: size, align: 'center' },
-      { x: anchor.x - w / 2, y: anchor.y + gap, w, h: size, align: 'center' }
+      { x: anchor.x - w / 2, y: anchor.y + gap, w, h: size, align: 'center' },
+      { x: anchor.x + lean, y: anchor.y - lean - size, w, h: size, align: 'left' },
+      { x: anchor.x + lean, y: anchor.y + lean, w, h: size, align: 'left' },
+      { x: anchor.x - lean - w, y: anchor.y - lean - size, w, h: size, align: 'right' },
+      { x: anchor.x - lean - w, y: anchor.y + lean, w, h: size, align: 'right' }
     ];
     const spot = options.find((box) => !placed.some((other) => overlaps(box, other)));
     if (!spot) continue;
@@ -277,6 +307,14 @@ export function paintNetwork(
   return { hits, labels: placeLabels(ctx, view, focus, hits) };
 }
 
+function ring(ctx: CanvasRenderingContext2D, palette: Palette, at: Point, radius: number) {
+  ctx.strokeStyle = palette.halo;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(at.x, at.y, radius, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
 /** Trains, every frame */
 export function paintTrains(
   ctx: CanvasRenderingContext2D,
@@ -289,8 +327,9 @@ export function paintTrains(
 ): Map<string, Hit> {
   const hits = new Map<string, Hit>();
   const width = lineWidth(view.k);
-  const length = Math.max(7, width * 2.7);
-  const girth = Math.max(4.5, width * 1.55);
+  // well wider than the line, so a train reads as a carriage on it rather than a gap in it
+  const length = Math.max(10, width * 3.2);
+  const girth = Math.max(6.5, width * 2.2);
   ctx.clearRect(0, 0, view.width, view.height);
   ctx.lineJoin = 'round';
 
@@ -304,17 +343,10 @@ export function paintTrains(
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.rotate(shown.angle);
-    if (selected) {
-      ctx.fillStyle = palette.halo;
-      ctx.globalAlpha *= 0.28 + 0.12 * Math.sin(pulse);
-      ctx.beginPath();
-      ctx.arc(0, 0, length * 1.1, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = Math.max(0, train.opacity);
-    }
+    if (selected) ring(ctx, palette, { x: 0, y: 0 }, length * 0.8 + 3 + Math.sin(pulse) * 1.5);
     ctx.fillStyle = palette.lines[reading.line];
-    ctx.strokeStyle = palette.paper;
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = palette.ring;
+    ctx.lineWidth = 1.25;
     ctx.beginPath();
     ctx.roundRect(-length / 2, -girth / 2, length, girth, girth / 2);
     ctx.fill();
@@ -329,6 +361,9 @@ export function paintTrains(
     hits.set(train.key, { ...p, radius: Math.max(14, length) });
   }
   ctx.globalAlpha = 1;
+  if (focus.station !== null) {
+    ring(ctx, palette, toScreen(view, stations[focus.station]), Math.max(12, width * 2.6));
+  }
   if (you) {
     const p = toScreen(view, you);
     ctx.fillStyle = palette.halo;

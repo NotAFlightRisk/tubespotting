@@ -12,9 +12,9 @@
   import TrainDetail from '#lib/components/TrainDetail.svelte';
   import { isLineId, lineById, type LineId } from '#lib/lines.js';
   import { Live } from '#lib/live.svelte.js';
-  import TubeMap, { type Pick } from '#lib/map/TubeMap.svelte';
+  import TubeMap, { type Tap } from '#lib/map/TubeMap.svelte';
   import { description, site, title } from '#lib/meta.js';
-  import { project, stationById, stations, type Point } from '#lib/network.js';
+  import { distance, project, stationById, stations, type Point } from '#lib/network.js';
 
   type Selection =
     | { kind: 'line'; id: LineId }
@@ -26,6 +26,7 @@
   const live = new Live();
   const wide = new MediaQuery('min-width: 960px');
   const STALE_SECONDS = 90;
+  const NEARBY_KM = 3;
 
   let selection = $state<Selection>(null);
   let follow = $state(false);
@@ -101,7 +102,7 @@
     searching = false;
   }
 
-  function onpick(pick: Pick) {
+  function onpick(pick: Tap) {
     if (pick?.kind === 'train') pickTrain(pick.key);
     else if (pick?.kind === 'station') pickStation(pick.index);
     else close();
@@ -116,8 +117,12 @@
     if (!navigator.geolocation) return (notice = "This browser can't share your location");
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
-        you = project(coords.longitude, coords.latitude);
-        map.flyTo([you], 0.06);
+        const here = (you = project(coords.longitude, coords.latitude));
+        const [nearest] = [...stations].sort((a, b) => distance(here, a) - distance(here, b));
+        const km = distance(here, nearest) / 1000;
+        if (km < NEARBY_KM) return pickStation(nearest.index);
+        notice = `You're ${Math.round(km)} km from the nearest Tube station`;
+        map.flyTo([here, nearest], 0.06);
       },
       () => (notice = "Couldn't get your location"),
       { maximumAge: 60_000, timeout: 10_000 }
@@ -160,7 +165,15 @@
   });
 </script>
 
-<svelte:window bind:innerHeight />
+<svelte:window
+  bind:innerHeight
+  onkeydown={(event) => {
+    const typing = event.target instanceof HTMLElement && event.target.closest('input, textarea');
+    if (event.key !== '/' || typing || searching) return;
+    event.preventDefault();
+    searching = true;
+  }}
+/>
 
 <svelte:head>
   <title>{title}</title>
@@ -242,6 +255,8 @@
             line={lineById(id)!}
             status={live.snapshot?.status.find((s) => s.id === id)}
             trains={running.filter((train) => train.reading.line === id)}
+            at={live.snapshot?.at ?? now}
+            {now}
             onpicktrain={pickTrain}
           />
         {:else if selection.kind === 'station'}
