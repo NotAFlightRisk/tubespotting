@@ -134,7 +134,7 @@
     }
 
     .line {
-      grid-template-columns: 11rem 1fr auto;
+      grid-template-columns: 10rem 1fr auto;
       width: 100%;
       border-radius: 0;
       box-shadow: none;
@@ -146,9 +146,13 @@
         padding-inline: var(--space-3);
       }
 
+      .name {
+        font-size: 14px;
+      }
+
       .state {
         padding-block: 0;
-        font-size: inherit;
+        font-size: 14px;
       }
 
       .count {
