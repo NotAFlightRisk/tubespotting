@@ -52,6 +52,7 @@
   let dirty = true;
   let stationHits = new Map<number, Hit>();
   let labels: Label[] = [];
+  let outgoing: Label[] = [];
   let trainHits = new Map<string, Hit>();
 
   const view = (): View => ({ k: transform.k, x: transform.x, y: transform.y, ...size });
@@ -145,8 +146,10 @@
   const FADE_MS = 400;
 
   $effect(() => {
-    if (focus.line !== fading.to)
+    if (focus.line !== fading.to) {
       fading = { from: fading.to, to: focus.line, since: performance.now() };
+      outgoing = labels;
+    }
     void [focus.station, focus.train];
     dirty = true;
   });
@@ -225,7 +228,8 @@
         calm.current ? 0 : now / 260,
         you
       );
-      paintLabels(topCtx, palette, labels);
+      if (lens.fade < 1) paintLabels(topCtx, palette, outgoing, 1 - lens.fade);
+      paintLabels(topCtx, palette, labels, lens.fade);
     });
 
     return () => {

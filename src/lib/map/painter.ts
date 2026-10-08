@@ -213,6 +213,13 @@ interface Box {
   h: number;
 }
 
+const runsAcross = (index: number) => {
+  const track = tickTrack.get(index);
+  if (!track) return false;
+  const [a, b] = [stations[track.a], stations[track.b]];
+  return Math.abs(b.x - a.x) > Math.abs(b.y - a.y);
+};
+
 const overlaps = (a: Box, b: Box) =>
   a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
@@ -223,7 +230,7 @@ function placeLabels(
   hits: Map<number, Hit>
 ): Label[] {
   const labels: Label[] = [];
-  const size = labelSize(view.k);
+  const size = labelSize(view.k) - (focus.line ? 1 : 0);
   const width = lineWidth(view.k);
   ctx.font = `${size}px ${FONT}`;
   // interchange rings stay readable, so labels go round the ones still in view
@@ -255,11 +262,17 @@ function placeLabels(
     const w = ctx.measureText(text).width;
     const gap = width * Math.max(1.4, group.lines.size * 0.6) + 4;
     const lean = gap * 0.7;
-    const options: (Box & { align: CanvasTextAlign })[] = [
+    const beside: (Box & { align: CanvasTextAlign })[] = [
       { x: anchor.x + gap, y: anchor.y - size / 2, w, h: size, align: 'left' },
-      { x: anchor.x - gap - w, y: anchor.y - size / 2, w, h: size, align: 'right' },
+      { x: anchor.x - gap - w, y: anchor.y - size / 2, w, h: size, align: 'right' }
+    ];
+    const over: (Box & { align: CanvasTextAlign })[] = [
       { x: anchor.x - w / 2, y: anchor.y - gap - size, w, h: size, align: 'center' },
-      { x: anchor.x - w / 2, y: anchor.y + gap, w, h: size, align: 'center' },
+      { x: anchor.x - w / 2, y: anchor.y + gap, w, h: size, align: 'center' }
+    ];
+    // like the printed map, names sit beside a line running up the page and above one running across
+    const options: (Box & { align: CanvasTextAlign })[] = [
+      ...(runsAcross(group.members[0].index) ? [...over, ...beside] : [...beside, ...over]),
       { x: anchor.x + lean, y: anchor.y - lean - size, w, h: size, align: 'left' },
       { x: anchor.x + lean, y: anchor.y + lean, w, h: size, align: 'left' },
       { x: anchor.x - lean - w, y: anchor.y - lean - size, w, h: size, align: 'right' },
@@ -275,7 +288,13 @@ function placeLabels(
 }
 
 /** Names go on top of the trains, so a busy station still says what it is */
-export function paintLabels(ctx: CanvasRenderingContext2D, palette: Palette, labels: Label[]) {
+export function paintLabels(
+  ctx: CanvasRenderingContext2D,
+  palette: Palette,
+  labels: Label[],
+  alpha = 1
+) {
+  ctx.globalAlpha = alpha;
   ctx.textBaseline = 'middle';
   ctx.lineJoin = 'round';
   ctx.lineWidth = 3;
@@ -287,6 +306,7 @@ export function paintLabels(ctx: CanvasRenderingContext2D, palette: Palette, lab
     ctx.strokeText(label.text, label.x, label.y);
     ctx.fillText(label.text, label.x, label.y);
   }
+  ctx.globalAlpha = 1;
 }
 
 /** The network itself, redrawn only when the view, focus or theme changes */

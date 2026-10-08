@@ -255,7 +255,6 @@
             line={lineById(id)!}
             status={live.snapshot?.status.find((s) => s.id === id)}
             trains={running.filter((train) => train.reading.line === id)}
-            at={live.snapshot?.at ?? now}
             {now}
             onpicktrain={pickTrain}
           />

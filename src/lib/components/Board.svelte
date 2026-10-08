@@ -153,6 +153,7 @@
       .state {
         padding-block: 0;
         font-size: 14px;
+        white-space: nowrap;
       }
 
       .count {

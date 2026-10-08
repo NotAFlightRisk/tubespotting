@@ -2,19 +2,18 @@
   import type { Tracked } from '#lib/fleet.js';
   import type { Line } from '#lib/lines.js';
   import { callsApart, stations } from '#lib/network.js';
-  import { count, minutes, tone, whereIs } from '#lib/status.js';
+  import { count, minutes, nextCall, tone, whereIs } from '#lib/status.js';
   import type { LineStatus } from '#lib/types.js';
 
   interface Props {
     line: Line;
     status: LineStatus | undefined;
     trains: Tracked[];
-    at: number;
     now: number;
     onpicktrain: (key: string) => void;
   }
 
-  let { line, status, trains, at, now, onpicktrain }: Props = $props();
+  let { line, status, trains, now, onpicktrain }: Props = $props();
 
   const feeling = $derived(status ? tone(status.severity) : 'good');
 
@@ -50,12 +49,12 @@
       <h3>To {direction.to} <span>· {count(direction.trains.length, 'train')}</span></h3>
       <ol class="strip">
         {#each direction.trains as train (train.key)}
-          {@const [next, eta] = train.reading.stops[0]}
+          {@const next = nextCall(train, now)}
           <li>
             <button type="button" onclick={() => onpicktrain(train.key)}>
               <span class="where">{whereIs(train, now)}</span>
               <span class="next">
-                {stations[next].name} · {minutes((at + eta * 1000 - now) / 1000)}
+                {stations[next.station].name} · {minutes(next.seconds)}
               </span>
             </button>
           </li>
@@ -103,7 +102,8 @@
   .total {
     margin: var(--space-4) 0 0;
     color: var(--text-muted);
-    font: 15px/1.3 var(--font-display);
+    font: 600 14px/1.3 var(--font-ui);
+    font-variant-numeric: tabular-nums;
   }
 
   h3 {
@@ -113,7 +113,8 @@
 
     span {
       color: var(--text-muted);
-      font-size: 14px;
+      font: 600 13px var(--font-ui);
+      font-variant-numeric: tabular-nums;
     }
   }
 
