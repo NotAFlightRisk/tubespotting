@@ -14,7 +14,7 @@
   import { isLineId, isModeId, lineById, linesIn, type LineId, type ModeId } from '#lib/lines.js';
   import { Live } from '#lib/live.svelte.js';
   import TubeMap, { type Tap } from '#lib/map/TubeMap.svelte';
-  import { description, site, source, title } from '#lib/meta.js';
+  import { description, imageAlt, name, site, source, structuredData, title } from '#lib/meta.js';
   import { distance, project, stationById, stations, type Point } from '#lib/network.js';
   import { swipeToClose } from '#lib/swipe.js';
   import { Theme } from '#lib/theme.svelte.js';
@@ -241,13 +241,21 @@
 <svelte:head>
   <title>{title}</title>
   <meta name="description" content={description} />
+  <meta name="robots" content="max-image-preview:large" />
   <link rel="canonical" href={site} />
   <meta property="og:type" content="website" />
+  <meta property="og:site_name" content={name} />
+  <meta property="og:locale" content="en_GB" />
   <meta property="og:title" content={title} />
   <meta property="og:description" content={description} />
   <meta property="og:url" content={site} />
   <meta property="og:image" content="{site}/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content={imageAlt} />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image:alt" content={imageAlt} />
+  {@html `<script type="application/ld+json">${structuredData}</script>`}
 </svelte:head>
 
 <div class="app" class:open={selection !== null}>
