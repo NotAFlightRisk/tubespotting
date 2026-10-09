@@ -144,6 +144,34 @@ for (const line of lineData) {
   lineGraph.set(line.id, graph);
 }
 
+/** A line's drawn graph as unbroken runs between its ends and junctions */
+function runsOf(graph: Map<number, Set<number>>): number[][] {
+  const walked = new Set<string>();
+  const runs: number[][] = [];
+  // ends and junctions first, so only a loop with neither starts mid-way round
+  const starts = [...graph.keys()].sort(
+    (a, b) => Number(graph.get(a)!.size === 2) - Number(graph.get(b)!.size === 2)
+  );
+  for (const start of starts) {
+    for (const first of graph.get(start)!) {
+      if (walked.has(pair(start, first))) continue;
+      const run = [start];
+      let [previous, here] = [start, first];
+      while (!walked.has(pair(previous, here))) {
+        walked.add(pair(previous, here));
+        run.push(here);
+        const onward = graph.get(here)!;
+        if (onward.size !== 2) break;
+        [previous, here] = [here, [...onward].find((next) => next !== previous)!];
+      }
+      runs.push(run);
+    }
+  }
+  return runs;
+}
+
+export const lineRuns = new Map([...lineGraph].map(([line, graph]) => [line, runsOf(graph)]));
+
 export const tracks: Track[] = [...trackByPair.values()];
 for (const track of tracks) {
   track.lines.sort((p, q) => LINE_IDS.indexOf(p) - LINE_IDS.indexOf(q));

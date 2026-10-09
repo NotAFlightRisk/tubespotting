@@ -16,7 +16,9 @@ export const LINE_IDS = [
   'mildmay',
   'suffragette',
   'weaver',
-  'windrush'
+  'windrush',
+  'dlr',
+  'tram'
 ] as const;
 
 export type LineId = (typeof LINE_IDS)[number];
@@ -25,7 +27,9 @@ export type LineId = (typeof LINE_IDS)[number];
 export const MODES = [
   { id: 'tube', name: 'Underground' },
   { id: 'elizabeth-line', name: 'Elizabeth line' },
-  { id: 'overground', name: 'Overground' }
+  { id: 'overground', name: 'Overground' },
+  { id: 'dlr', name: 'DLR' },
+  { id: 'tram', name: 'Trams' }
 ] as const;
 
 export type ModeId = (typeof MODES)[number]['id'];
@@ -69,7 +73,9 @@ export const LINES: Line[] = [
   { id: 'mildmay', mode: 'overground', name: 'Mildmay', colour: '#006fe6', ink: '#ffffff' },
   { id: 'suffragette', mode: 'overground', name: 'Suffragette', colour: '#18a95d', ink: '#000000' },
   { id: 'weaver', mode: 'overground', name: 'Weaver', colour: '#9b0058', ink: '#ffffff' },
-  { id: 'windrush', mode: 'overground', name: 'Windrush', colour: '#dc241f', ink: '#ffffff' }
+  { id: 'windrush', mode: 'overground', name: 'Windrush', colour: '#dc241f', ink: '#ffffff' },
+  { id: 'dlr', mode: 'dlr', name: 'DLR', colour: '#00afad', ink: '#000000' },
+  { id: 'tram', mode: 'tram', name: 'Tram', colour: '#5fb526', ink: '#000000' }
 ];
 
 const BY_ID = new Map(LINES.map((line) => [line.id, line]));

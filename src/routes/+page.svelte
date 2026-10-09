@@ -13,8 +13,9 @@
   import { isLineId, isModeId, lineById, linesIn, type LineId, type ModeId } from '#lib/lines.js';
   import { Live } from '#lib/live.svelte.js';
   import TubeMap, { type Tap } from '#lib/map/TubeMap.svelte';
-  import { description, site, title } from '#lib/meta.js';
+  import { description, site, source, title } from '#lib/meta.js';
   import { distance, project, stationById, stations, type Point } from '#lib/network.js';
+  import { Theme } from '#lib/theme.svelte.js';
 
   type Selection =
     | { kind: 'line'; id: LineId }
@@ -24,6 +25,7 @@
     | null;
 
   const live = new Live();
+  const theme = new Theme();
   const wide = new MediaQuery('min-width: 960px');
   const STALE_SECONDS = 90;
   const NEARBY_KM = 3;
@@ -80,6 +82,7 @@
           ? 'Catching up'
           : 'Live'
   );
+  const about = $derived(selection?.kind === 'about');
   const tracked = $derived.by(() => {
     void live.snapshot;
     return selection?.kind === 'train' ? live.fleet.trains.get(selection.key) : undefined;
@@ -227,6 +230,7 @@
     {focus}
     {follow}
     {inset}
+    dark={theme.dark}
     {you}
     label="Map of the London Underground with {running.length} trains moving live"
     {onpick}
@@ -256,8 +260,17 @@
         </button>
         <button
           type="button"
+          aria-label="Dark mode"
+          aria-pressed={theme.dark}
+          onclick={() => theme.flip()}
+        >
+          <Icon name={theme.dark ? 'sun' : 'moon'} />
+        </button>
+        <button
+          type="button"
           aria-label="About this map"
-          onclick={() => (selection = { kind: 'about' })}
+          aria-expanded={about}
+          onclick={() => (about ? close() : (selection = { kind: 'about' }))}
         >
           <Icon name="info" />
         </button>
@@ -323,9 +336,7 @@
         onpick={pickLine}
         ontoggle={toggle}
       />
-      <p class="caveat">
-        TfL only says when trains are due, so where they sit between stations is a good guess.
-      </p>
+      <a class="source" href={source} aria-label="Source on GitHub"><Icon name="github" /></a>
     {/if}
   </aside>
 
@@ -419,7 +430,8 @@
   }
 
   .actions button,
-  .controls button {
+  .controls button,
+  .source {
     display: grid;
     place-items: center;
     width: var(--tap);
@@ -494,7 +506,7 @@
     transition: bottom 320ms var(--ease-out);
   }
 
-  .caveat {
+  .source {
     display: none;
   }
 
@@ -550,12 +562,15 @@
       background: var(--surface-sunk);
     }
 
-    .caveat {
-      display: block;
-      margin: auto 0 0;
-      padding: var(--space-4);
+    .source {
+      display: grid;
+      margin: auto var(--space-4) var(--space-4);
+      box-shadow: none;
       color: var(--text-muted);
-      font-size: 13px;
+
+      &:hover {
+        color: var(--text);
+      }
     }
 
     .sheet {

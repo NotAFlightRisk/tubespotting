@@ -1,6 +1,8 @@
 import type { Tracked } from '#lib/fleet.js';
 import { LINES, type LineId } from '#lib/lines.js';
 import {
+  distance,
+  lineRuns,
   routeGraph,
   stations,
   strand,
@@ -45,6 +47,8 @@ export interface Label extends Point {
 
 const FADED = 0.16;
 const RIVER_METRES = 230;
+// line widths back from a station that a bend starts, like the printed map's corners
+const BEND = 1.5;
 const FONT = '"Hammersmith One", system-ui, sans-serif';
 
 const mix = (focus: Focus, alpha: (line: LineId | null) => number) =>
@@ -140,6 +144,64 @@ const strandOffset = (a: number, b: number, line: LineId, width: number) => {
   return { x: normal.x * slot * width, y: normal.y * slot * width };
 };
 
+interface Span {
+  from: Point;
+  to: Point;
+  /** How much of each end the bends either side take */
+  cut: number;
+}
+
+const towards = (from: Point, to: Point, by: number): Point => {
+  const f = by / (distance(from, to) || 1);
+  return { x: from.x + (to.x - from.x) * f, y: from.y + (to.y - from.y) * f };
+};
+
+const heading = ({ from, to }: Span): Point => ({ x: to.x - from.x, y: to.y - from.y });
+
+/** Where two strands would meet, unless they barely turn or step across to another slot */
+function corner(a: Span, b: Span, width: number): Point | null {
+  const [p, q] = [heading(a), heading(b)];
+  const cross = p.x * q.y - p.y * q.x;
+  if (Math.abs(cross) < 0.05 * Math.hypot(p.x, p.y) * Math.hypot(q.x, q.y)) return null;
+  const u = ((b.from.x - a.from.x) * q.y - (b.from.y - a.from.y) * q.x) / cross;
+  const meet = { x: a.from.x + p.x * u, y: a.from.y + p.y * u };
+  return distance(meet, a.to) < width * 2 ? meet : null;
+}
+
+function traceRun(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  line: LineId,
+  run: number[],
+  width: number
+) {
+  const spans: Span[] = run.slice(1).map((b, i) => {
+    const off = strandOffset(run[i], b, line, width);
+    const [from, to] = [run[i], b].map((index) => {
+      const p = toScreen(view, stations[index]);
+      return { x: p.x + off.x, y: p.y + off.y };
+    });
+    return { from, to, cut: Math.min(width * BEND, distance(from, to) / 2) };
+  });
+  spans.forEach((span, i) => {
+    const next = spans[i + 1];
+    const start = i ? towards(span.from, span.to, span.cut) : span.from;
+    const end = next ? towards(span.to, span.from, span.cut) : span.to;
+    if (crosses(view, span.from, span.to)) {
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(end.x, end.y);
+    }
+    if (next && visible(view, span.to)) {
+      const bend = corner(span, next, width);
+      const out = towards(next.from, next.to, next.cut);
+      ctx.moveTo(end.x, end.y);
+      // round the corner where the strands would meet, or ease over in an S for a step across
+      if (bend) ctx.quadraticCurveTo(bend.x, bend.y, out.x, out.y);
+      else ctx.bezierCurveTo(span.to.x, span.to.y, next.from.x, next.from.y, out.x, out.y);
+    }
+  });
+}
+
 function drawRiver(ctx: CanvasRenderingContext2D, view: View, palette: Palette) {
   ctx.strokeStyle = palette.river;
   ctx.lineWidth = Math.max(3, RIVER_METRES * view.k);
@@ -162,15 +224,7 @@ function drawTracks(ctx: CanvasRenderingContext2D, view: View, palette: Palette,
     ctx.globalAlpha = lineAlpha(focus, line);
     ctx.strokeStyle = palette.lines[line];
     ctx.beginPath();
-    for (const track of tracks) {
-      if (!track.lines.includes(line)) continue;
-      const a = toScreen(view, stations[track.a]);
-      const b = toScreen(view, stations[track.b]);
-      if (!crosses(view, a, b)) continue;
-      const off = strandOffset(track.a, track.b, line, width);
-      ctx.moveTo(a.x + off.x, a.y + off.y);
-      ctx.lineTo(b.x + off.x, b.y + off.y);
-    }
+    for (const run of lineRuns.get(line)!) traceRun(ctx, view, line, run, width);
     ctx.stroke();
   }
   ctx.globalAlpha = 1;

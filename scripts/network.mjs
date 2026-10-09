@@ -20,7 +20,9 @@ const LINES = [
   'mildmay',
   'suffragette',
   'weaver',
-  'windrush'
+  'windrush',
+  'dlr',
+  'tram'
 ];
 const DIRECTIONS = ['inbound', 'outbound'];
 const OUT = new URL('../src/lib/data/network.json', import.meta.url);
@@ -50,8 +52,8 @@ async function tfl(path, params = {}) {
 
 export const cleanName = (name) =>
   name
-    .replace(/(\s+(?:Underground|Rail) Station|-Underground)$/i, '')
-    .replace(/\s*\(London\)|\s+ELL$/i, '')
+    .replace(/(\s+(?:Underground|Rail|DLR) Station|\s+Tram Stop|-Underground)$/i, '')
+    .replace(/\s*\((?:London|for [^)]*)\)|\s+ELL$/i, '')
     .replace(/\s*\((?:[^)]*(?:line|bakerloo|central|dist|h&c|circle))[^)]*\)/i, '')
     .trim();
 

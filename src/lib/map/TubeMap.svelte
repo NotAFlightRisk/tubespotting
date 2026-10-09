@@ -25,16 +25,16 @@
     focus: Pick<Focus, 'shown' | 'line' | 'station' | 'train'>;
     follow: boolean;
     inset: { left: number; bottom: number };
+    dark: boolean;
     label: string;
     you: Point | null;
     onpick: (tap: Tap) => void;
     onwander: () => void;
   }
 
-  let { live, focus, follow, inset, label, you, onpick, onwander }: Props = $props();
+  let { live, focus, follow, inset, dark, label, you, onpick, onwander }: Props = $props();
 
   const calm = new MediaQuery('prefers-reduced-motion: reduce');
-  const dark = new MediaQuery('prefers-color-scheme: dark');
   // out to Reading, so the Elizabeth line fits
   const LONDON = { x0: -66_000, y0: -28_000, x1: 38_000, y1: 22_000 };
   // roughly zones 1 and 2, or just zone 1 on a phone
@@ -137,7 +137,7 @@
   }
 
   $effect(() => {
-    void dark.current;
+    void dark;
     palette = readPalette(wrap);
     dirty = true;
   });

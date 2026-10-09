@@ -1,18 +1,12 @@
 <script lang="ts">
+  import { source } from '#lib/meta.js';
+
   const counting = Boolean(import.meta.env.PUBLIC_PLAUSIBLE_SCRIPT);
   const reporting = Boolean(import.meta.env.PUBLIC_SENTRY_DSN);
 </script>
 
 <h2>About</h2>
-<p>
-  Every London Underground train on one map, moving as TfL reports it. The Elizabeth line and
-  Overground can go on too, from the end of the line list.
-</p>
-<p>
-  TfL doesn't say where trains physically are, only when each one's due at each station. So the
-  positions here are worked out from those times and can be a few hundred metres out. Good enough to
-  watch your train coming, not to set your watch by.
-</p>
+<p>Every London Underground train on one map, moving as TfL reports it.</p>
 
 <h3>Your data</h3>
 <ul>
@@ -30,7 +24,7 @@
   affiliated with TfL.
 </p>
 <p class="small">
-  <a href="https://github.com/NotAFlightRisk/tubespotting">Source on GitHub</a>
+  <a href={source}>Source on GitHub</a>
 </p>
 
 <style>

@@ -48,6 +48,14 @@
   --panel-width: 380px;
 }
 
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
 *,
 *::before,
 *::after {
