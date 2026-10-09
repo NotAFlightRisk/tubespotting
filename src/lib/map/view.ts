@@ -21,8 +21,13 @@ export const toWorld = (view: View, p: Point): Point => ({
 
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
 
+// about where the map opens, past which lines thin faster so the middle doesn't clog up
+const OPENS = 0.04;
+const weight = (k: number) => 2 + Math.log2(k / 0.01) * 1.25;
+
 /** Line weight in CSS pixels, thickening gently as you zoom in */
-export const lineWidth = (k: number) => clamp(2 + Math.log2(k / 0.01) * 1.25, 2, 7.5);
+export const lineWidth = (k: number) =>
+  k < OPENS ? Math.max(1, weight(OPENS) * (k / OPENS) ** 0.85) : Math.min(weight(k), 7.5);
 
 // about where lines reach their full weight, and zoomed out past where the small marks go
 const CLOSE = 0.2;
