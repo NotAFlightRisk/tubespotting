@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Fleet, type Tracked } from '#lib/fleet.js';
+import { layouts } from '#lib/layout.js';
 import { locate, schedule } from '#lib/motion.js';
-import { distance, stations } from '#lib/network.js';
+import { distance, stations, type Point } from '#lib/network.js';
 import { whereIs } from '#lib/status.js';
 import type { Snapshot, TrainReading } from '#lib/types.js';
 import { AT, index } from './helpers.js';
@@ -26,6 +27,19 @@ const train = (overrides: Partial<TrainReading> = {}): TrainReading => ({
 
 const seconds = (offset: number) => AT / 1000 + offset;
 
+const offTrack = (p: Point, shape: Point[]) =>
+  Math.min(
+    ...shape.slice(1).map((b, i) => {
+      const a = shape[i];
+      const length = distance(a, b) ** 2 || 1;
+      const f = Math.max(
+        0,
+        Math.min(1, ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / length)
+      );
+      return distance(p, { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f });
+    })
+  );
+
 describe('locate', () => {
   it('closes in on the next stop as its arrival time comes round', () => {
     const legs = schedule(train(), AT);
@@ -43,6 +57,17 @@ describe('locate', () => {
     expect(distance(stood, stations[VAUXHALL])).toBeLessThan(1);
   });
 
+  it('faces the way it is going, on the move and stood at a station', () => {
+    const legs = schedule(train(), AT);
+    const facing = (t: number, towards: number) => {
+      const { x, y, angle } = locate('victoria', legs, VAUXHALL, seconds(t));
+      const ahead = stations[towards];
+      return Math.cos(angle) * (ahead.x - x) + Math.sin(angle) * (ahead.y - y);
+    };
+    expect(facing(30, VAUXHALL)).toBeGreaterThan(0);
+    expect(facing(65, PIMLICO)).toBeGreaterThan(0);
+  });
+
   it('stays at the last stop once the estimates run out', () => {
     const legs = schedule(train(), AT);
     expect(locate('victoria', legs, VAUXHALL, seconds(600)).at).toBe(PIMLICO);
@@ -57,6 +82,13 @@ describe('locate', () => {
   it('leaves a train where it is when TfL says it is stood at its next call', () => {
     const stood = train({ where: 'At Vauxhall', from: VAUXHALL, stops: [[VAUXHALL, 40, 0]] });
     expect(locate('victoria', schedule(stood, AT), VAUXHALL, seconds(0)).at).toBe(VAUXHALL);
+  });
+
+  it.each(['geographic', 'schematic'] as const)('keeps a train on the %s track', (style) => {
+    const layout = layouts[style];
+    const placed = locate('victoria', schedule(train(), AT), VAUXHALL, seconds(30), layout);
+    expect(placed.at).toBeNull();
+    expect(offTrack(placed, layout.shape(...placed.between))).toBeLessThan(1);
   });
 
   it('works out where a train is coming from when TfL does not say', () => {
@@ -120,6 +152,16 @@ describe('Fleet', () => {
     });
     fleet.update(snapshot(AT + 10_000, [later]), AT + 10_000);
     expect([...fleet.trains.keys()]).toEqual([key]);
+  });
+
+  it('carries trains straight onto the other map rather than easing them across', () => {
+    const fleet = new Fleet();
+    fleet.update(snapshot(AT, [train()]), AT);
+    fleet.step(AT + 1000, 1);
+    fleet.step(AT + 1100, 0.1, layouts.schematic);
+    const [moved] = fleet.trains.values();
+    const there = locate('victoria', moved.legs, VAUXHALL, seconds(1.1), layouts.schematic);
+    expect(distance(moved.shown, there)).toBeLessThan(1);
   });
 
   it('fades a train out when it drops off the feed rather than deleting it', () => {

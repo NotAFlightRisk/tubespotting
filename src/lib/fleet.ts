@@ -1,3 +1,4 @@
+import { layouts } from './layout.js';
 import { locate, measureRuns, schedule, type Leg, type Placement } from './motion.js';
 import { distance } from './network.js';
 import type { Snapshot, TrainReading } from './types.js';
@@ -48,12 +49,14 @@ let serial = 0;
 /** Keeps every train on screen between readings, and the nameless ones matched up across them */
 export class Fleet {
   trains = new Map<string, Tracked>();
+  #layout = layouts.geographic;
 
   update(snapshot: Snapshot, now = Date.now()) {
     const runs = measureRuns(snapshot.trains);
     const incoming = snapshot.trains.map((reading) => {
       const legs = schedule(reading, snapshot.at, runs);
-      return { reading, legs, target: locate(reading.line, legs, reading.stops[0][0], now / 1000) };
+      const target = locate(reading.line, legs, reading.stops[0][0], now / 1000, this.#layout);
+      return { reading, legs, target };
     });
     const next = new Map<string, Tracked>();
     // a train that's still fading out can be picked back up if it turns up again
@@ -100,7 +103,10 @@ export class Fleet {
   }
 
   /** Moves everything on by `dt` seconds, settling into the latest reading rather than jumping */
-  step(now: number, dt: number) {
+  step(now: number, dt: number, layout = layouts.geographic) {
+    // a map that's changing under the trains carries them with it
+    const moved = layout !== this.#layout;
+    this.#layout = layout;
     const k = 1 - Math.exp(-dt / SETTLE_SECONDS);
     for (const [key, train] of this.trains) {
       if (train.gone) {
@@ -109,7 +115,8 @@ export class Fleet {
         continue;
       }
       const { line, stops } = train.reading;
-      train.shown = blend(train.shown, locate(line, train.legs, stops[0][0], now / 1000), k);
+      const target = locate(line, train.legs, stops[0][0], now / 1000, layout);
+      train.shown = moved ? target : blend(train.shown, target, k);
       train.opacity = Math.min(1, train.opacity + dt / FADE_SECONDS);
     }
   }

@@ -1,18 +1,20 @@
 import type { Tracked } from '#lib/fleet.js';
+import type { Layout } from '#lib/layout.js';
 import { LINES, type LineId } from '#lib/lines.js';
 import {
   distance,
+  lane,
   lineRuns,
+  middle,
   routeGraph,
+  sideways,
   stations,
-  strand,
-  thames,
   tracks,
   type Point,
   type Station,
   type Track
 } from '#lib/network.js';
-import { labelSize, lineWidth, toScreen, visible, type View } from './view.js';
+import { detailed, labelSize, lineWidth, toScreen, visible, zoomedOut, type View } from './view.js';
 
 export interface Palette {
   paper: string;
@@ -22,6 +24,10 @@ export interface Palette {
   ringFill: string;
   halo: string;
   lines: Record<LineId, string>;
+  /** Each line's colour shifted a little, for marks drawn on top of it */
+  tints: Record<LineId, string>;
+  /** Each line's colour taken well away from it, to outline its trains */
+  edges: Record<LineId, string>;
 }
 
 export interface Focus {
@@ -55,6 +61,8 @@ const FADED = 0.16;
 const RIVER_METRES = 230;
 // line widths back from a station that a bend starts, like the printed map's corners
 const BEND = 1.5;
+// a ring grows with its lines up to this many, so the biggest hubs don't swamp the map
+const RING_LINES = 4;
 const FONT = '"Hammersmith One", system-ui, sans-serif';
 
 const mix = (focus: Focus, alpha: (line: LineId | null) => number) =>
@@ -66,22 +74,22 @@ const lineAlpha = (focus: Focus, line: LineId) =>
 const stationAlpha = (focus: Focus, station: Station) =>
   mix(focus, (picked) => (picked && !station.lines.includes(picked) ? FADED : 1));
 
-interface Layout {
+interface Marks {
   /** Each station's lines that are on show */
   lines: LineId[][];
   termini: Set<number>;
-  labelGroups: { name: string; members: Station[]; lines: Set<LineId>; x: number; y: number }[];
+  labelGroups: { name: string; members: Station[]; lines: Set<LineId> }[];
   hubs: Station[][];
   interchanges: Set<number>;
   tickTrack: Map<number, Track | undefined>;
 }
 
-const layouts = new Map<string, Layout>();
+const marked = new Map<string, Marks>();
 
 /** Rings, ticks and labels for whichever lines are on show, worked out once per mix */
-function layoutFor(shown: Set<LineId>): Layout {
+function marksFor(shown: Set<LineId>): Marks {
   const key = [...shown].sort().join();
-  if (layouts.has(key)) return layouts.get(key)!;
+  if (marked.has(key)) return marked.get(key)!;
   const lines = stations.map((s) => s.lines.filter((line) => shown.has(line)));
   const showing = stations.filter((s) => lines[s.index].length);
 
@@ -103,9 +111,7 @@ function layoutFor(shown: Set<LineId>): Layout {
   const labelGroups = [...groups.values()].map((members) => ({
     name: members[0].name,
     members,
-    lines: new Set(members.flatMap((m) => lines[m.index])),
-    x: members.reduce((sum, m) => sum + m.x, 0) / members.length,
-    y: members.reduce((sum, m) => sum + m.y, 0) / members.length
+    lines: new Set(members.flatMap((m) => lines[m.index]))
   }));
 
   const byHub = new Map<string, Station[]>();
@@ -130,9 +136,9 @@ function layoutFor(shown: Set<LineId>): Layout {
     ])
   );
 
-  const layout = { lines, termini, labelGroups, hubs, interchanges, tickTrack };
-  layouts.set(key, layout);
-  return layout;
+  const marks = { lines, termini, labelGroups, hubs, interchanges, tickTrack };
+  marked.set(key, marks);
+  return marks;
 }
 
 // the other railways go underneath, so the tube reads the same with them on
@@ -144,11 +150,6 @@ const crosses = (view: View, a: Point, b: Point, margin = 20) =>
   Math.min(a.x, b.x) < view.width + margin &&
   Math.max(a.y, b.y) > -margin &&
   Math.min(a.y, b.y) < view.height + margin;
-
-const strandOffset = (a: number, b: number, line: LineId, width: number) => {
-  const { slot, normal } = strand(a, b, line);
-  return { x: normal.x * slot * width, y: normal.y * slot * width };
-};
 
 interface Span {
   from: Point;
@@ -174,45 +175,61 @@ function corner(a: Span, b: Span, width: number): Point | null {
   return distance(meet, a.to) < width * 2 ? meet : null;
 }
 
-function traceRun(
-  ctx: CanvasRenderingContext2D,
-  view: View,
-  line: LineId,
-  run: number[],
-  width: number
-) {
-  const spans: Span[] = run.slice(1).map((b, i) => {
-    const off = strandOffset(run[i], b, line, width);
-    const [from, to] = [run[i], b].map((index) => {
-      const p = toScreen(view, stations[index]);
-      return { x: p.x + off.x, y: p.y + off.y };
+/** A track on screen, minus the bends too small to see from here */
+function onScreen(view: View, shape: Point[]): Point[] {
+  const points = [toScreen(view, shape[0])];
+  for (let i = 1; i < shape.length - 1; i++) {
+    const p = toScreen(view, shape[i]);
+    if (distance(p, points.at(-1)!) > 4) points.push(p);
+  }
+  points.push(toScreen(view, shape.at(-1)!));
+  return points;
+}
+
+/** A line's run as straight spans on screen, each nudged onto the line's own strand */
+function spansOf(view: View, layout: Layout, line: LineId, run: number[], width: number): Span[] {
+  return run.slice(1).flatMap((b, i) => {
+    const shift = lane(run[i], b, line) * width;
+    const points = onScreen(view, layout.shape(run[i], b));
+    return points.slice(1).map((q, j) => {
+      const side = sideways(points[j], q);
+      const [from, to] = [points[j], q].map((p) => ({
+        x: p.x + side.x * shift,
+        y: p.y + side.y * shift
+      }));
+      return { from, to, cut: Math.min(width * BEND, distance(from, to) / 2) };
     });
-    return { from, to, cut: Math.min(width * BEND, distance(from, to) / 2) };
-  });
-  spans.forEach((span, i) => {
-    const next = spans[i + 1];
-    const start = i ? towards(span.from, span.to, span.cut) : span.from;
-    const end = next ? towards(span.to, span.from, span.cut) : span.to;
-    if (crosses(view, span.from, span.to)) {
-      ctx.moveTo(start.x, start.y);
-      ctx.lineTo(end.x, end.y);
-    }
-    if (next && visible(view, span.to)) {
-      const bend = corner(span, next, width);
-      const out = towards(next.from, next.to, next.cut);
-      ctx.moveTo(end.x, end.y);
-      // round the corner where the strands would meet, or ease over in an S for a step across
-      if (bend) ctx.quadraticCurveTo(bend.x, bend.y, out.x, out.y);
-      else ctx.bezierCurveTo(span.to.x, span.to.y, next.from.x, next.from.y, out.x, out.y);
-    }
   });
 }
 
-function drawRiver(ctx: CanvasRenderingContext2D, view: View, palette: Palette) {
+/** One unbroken stroke along the spans on screen, so curves join up without a cap at every point */
+function traceRun(ctx: CanvasRenderingContext2D, view: View, spans: Span[], width: number) {
+  let joined = false;
+  spans.forEach((span, i) => {
+    if (!crosses(view, span.from, span.to)) {
+      joined = false;
+      return;
+    }
+    const next = spans[i + 1];
+    const start = i ? towards(span.from, span.to, span.cut) : span.from;
+    const end = next ? towards(span.to, span.from, span.cut) : span.to;
+    if (!joined) ctx.moveTo(start.x, start.y);
+    ctx.lineTo(end.x, end.y);
+    if (!next) return;
+    const bend = corner(span, next, width);
+    const out = towards(next.from, next.to, next.cut);
+    // round the corner where the strands would meet, or ease over in an S for a step across
+    if (bend) ctx.quadraticCurveTo(bend.x, bend.y, out.x, out.y);
+    else ctx.bezierCurveTo(span.to.x, span.to.y, next.from.x, next.from.y, out.x, out.y);
+    joined = true;
+  });
+}
+
+function drawRiver(ctx: CanvasRenderingContext2D, view: View, layout: Layout, palette: Palette) {
   ctx.strokeStyle = palette.river;
   ctx.lineWidth = Math.max(3, RIVER_METRES * view.k);
   ctx.beginPath();
-  for (const way of thames) {
+  for (const way of layout.river) {
     way.forEach((p, i) => {
       const s = toScreen(view, p);
       if (i) ctx.lineTo(s.x, s.y);
@@ -222,7 +239,13 @@ function drawRiver(ctx: CanvasRenderingContext2D, view: View, palette: Palette) 
   ctx.stroke();
 }
 
-function drawTracks(ctx: CanvasRenderingContext2D, view: View, palette: Palette, focus: Focus) {
+function drawTracks(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  layout: Layout,
+  palette: Palette,
+  focus: Focus
+) {
   const width = lineWidth(view.k);
   ctx.lineWidth = width;
   for (const { id: line } of DRAW_ORDER) {
@@ -230,7 +253,9 @@ function drawTracks(ctx: CanvasRenderingContext2D, view: View, palette: Palette,
     ctx.globalAlpha = lineAlpha(focus, line);
     ctx.strokeStyle = palette.lines[line];
     ctx.beginPath();
-    for (const run of lineRuns.get(line)!) traceRun(ctx, view, line, run, width);
+    for (const run of lineRuns.get(line)!) {
+      traceRun(ctx, view, spansOf(view, layout, line, run, width), width);
+    }
     ctx.stroke();
   }
   ctx.globalAlpha = 1;
@@ -239,17 +264,20 @@ function drawTracks(ctx: CanvasRenderingContext2D, view: View, palette: Palette,
 function drawStations(
   ctx: CanvasRenderingContext2D,
   view: View,
+  layout: Layout,
   palette: Palette,
   focus: Focus,
   hits: Map<number, Hit>
 ) {
   const width = lineWidth(view.k);
   const ring = Math.max(1.2, width * 0.42);
-  const showTicks = view.k > 0.018;
-  const { lines, hubs, interchanges, tickTrack } = layoutFor(focus.shown);
+  // rings swell less with their lines zoomed out, where they'd crowd each other
+  const swell = 0.4 - 0.15 * zoomedOut(view.k);
+  const showTicks = detailed(view.k);
+  const { lines, hubs, interchanges, tickTrack } = marksFor(focus.shown);
 
   for (const members of hubs) {
-    const points = members.map((m) => toScreen(view, m));
+    const points = members.map((m) => toScreen(view, layout.at[m.index]));
     if (!points.some((p) => visible(view, p))) continue;
     for (const [stroke, w] of [
       [palette.ring, width * 1.9 + ring * 2],
@@ -264,11 +292,12 @@ function drawStations(
   }
 
   for (const station of stations) {
-    const p = toScreen(view, station);
+    const p = toScreen(view, layout.at[station.index]);
     if (!lines[station.index].length || !visible(view, p)) continue;
     ctx.globalAlpha = stationAlpha(focus, station);
     if (interchanges.has(station.index)) {
-      const radius = Math.max(width * 0.95, (lines[station.index].length * width) / 2 + ring);
+      const served = Math.min(lines[station.index].length, RING_LINES);
+      const radius = Math.max(width * 0.95, served * width * swell + ring);
       ctx.fillStyle = palette.ringFill;
       ctx.strokeStyle = palette.ring;
       ctx.lineWidth = ring;
@@ -281,9 +310,12 @@ function drawStations(
       const line = lines[station.index][0];
       const track = tickTrack.get(station.index);
       if (showTicks && track) {
-        const { slot, normal } = strand(track.a, track.b, line);
-        const side = slot < 0 ? -1 : 1;
-        const base = { x: p.x + normal.x * slot * width, y: p.y + normal.y * slot * width };
+        const onward = track.a === station.index ? track.b : track.a;
+        const shift = lane(station.index, onward, line);
+        const [here, next] = layout.shape(station.index, onward);
+        const normal = sideways(here, next);
+        const side = shift < 0 ? -1 : 1;
+        const base = { x: p.x + normal.x * shift * width, y: p.y + normal.y * shift * width };
         const reach = width * 0.5 + width * 0.9;
         ctx.strokeStyle = palette.lines[line];
         ctx.lineWidth = Math.max(1.5, width * 0.75);
@@ -307,10 +339,11 @@ interface Box {
   h: number;
 }
 
-const runsAcross = ({ tickTrack }: Layout, index: number) => {
+const runsAcross = (layout: Layout, { tickTrack }: Marks, index: number) => {
   const track = tickTrack.get(index);
   if (!track) return false;
-  const [a, b] = [stations[track.a], stations[track.b]];
+  const onward = track.a === index ? track.b : track.a;
+  const [a, b] = layout.shape(index, onward);
   return Math.abs(b.x - a.x) > Math.abs(b.y - a.y);
 };
 
@@ -320,6 +353,7 @@ const overlaps = (a: Box, b: Box) =>
 function placeLabels(
   ctx: CanvasRenderingContext2D,
   view: View,
+  layout: Layout,
   focus: Focus,
   hits: Map<number, Hit>,
   inset: Inset
@@ -333,8 +367,8 @@ function placeLabels(
     box.y + box.h <= view.height - inset.bottom;
   const size = labelSize(view.k) - (focus.line ? 1 : 0);
   const width = lineWidth(view.k);
-  const layout = layoutFor(focus.shown);
-  const { interchanges, labelGroups, termini } = layout;
+  const marks = marksFor(focus.shown);
+  const { interchanges, labelGroups, termini } = marks;
   ctx.font = `${size}px ${FONT}`;
   // interchange rings stay readable, so labels go round the ones still in view
   const placed: Box[] = [...interchanges].flatMap((index) => {
@@ -359,7 +393,7 @@ function placeLabels(
     .sort((a, b) => b.weight - a.weight);
 
   for (const { group } of wanted) {
-    const anchor = toScreen(view, group);
+    const anchor = toScreen(view, middle(group.members.map((m) => layout.at[m.index])));
     if (!visible(view, anchor)) continue;
     const text = group.name;
     const w = ctx.measureText(text).width;
@@ -375,7 +409,9 @@ function placeLabels(
     ];
     // like the printed map, names sit beside a line running up the page and above one running across
     const options: (Box & { align: CanvasTextAlign })[] = [
-      ...(runsAcross(layout, group.members[0].index) ? [...over, ...beside] : [...beside, ...over]),
+      ...(runsAcross(layout, marks, group.members[0].index)
+        ? [...over, ...beside]
+        : [...beside, ...over]),
       { x: anchor.x + lean, y: anchor.y - lean - size, w, h: size, align: 'left' },
       { x: anchor.x + lean, y: anchor.y + lean, w, h: size, align: 'left' },
       { x: anchor.x - lean - w, y: anchor.y - lean - size, w, h: size, align: 'right' },
@@ -416,6 +452,7 @@ export function paintLabels(
 export function paintNetwork(
   ctx: CanvasRenderingContext2D,
   view: View,
+  layout: Layout,
   palette: Palette,
   focus: Focus,
   inset: Inset
@@ -425,10 +462,10 @@ export function paintNetwork(
   ctx.fillRect(0, 0, view.width, view.height);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  drawRiver(ctx, view, palette);
-  drawTracks(ctx, view, palette, focus);
-  drawStations(ctx, view, palette, focus, hits);
-  return { hits, labels: placeLabels(ctx, view, focus, hits, inset) };
+  drawRiver(ctx, view, layout, palette);
+  drawTracks(ctx, view, layout, palette, focus);
+  drawStations(ctx, view, layout, palette, focus, hits);
+  return { hits, labels: placeLabels(ctx, view, layout, focus, hits, inset) };
 }
 
 function ring(ctx: CanvasRenderingContext2D, palette: Palette, at: Point, radius: number) {
@@ -443,6 +480,7 @@ function ring(ctx: CanvasRenderingContext2D, palette: Palette, at: Point, radius
 export function paintTrains(
   ctx: CanvasRenderingContext2D,
   view: View,
+  layout: Layout,
   palette: Palette,
   focus: Focus,
   trains: Iterable<Tracked>,
@@ -451,9 +489,10 @@ export function paintTrains(
 ): Map<string, Hit> {
   const hits = new Map<string, Hit>();
   const width = lineWidth(view.k);
-  // well wider than the line, so a train reads as a carriage on it rather than a gap in it
-  const length = Math.max(10, width * 3.2);
-  const girth = Math.max(6.5, width * 2.2);
+  // a carriage wider than its line, squared off so it can't be taken for a station's ring
+  const length = width * 3.6;
+  const girth = width * 1.8;
+  const showHeading = detailed(view.k);
   ctx.clearRect(0, 0, view.width, view.height);
   ctx.lineJoin = 'round';
 
@@ -470,27 +509,31 @@ export function paintTrains(
     ctx.rotate(shown.angle);
     if (selected) ring(ctx, palette, { x: 0, y: 0 }, length * 0.8 + 3 + Math.sin(pulse) * 1.5);
     ctx.fillStyle = palette.lines[reading.line];
-    ctx.strokeStyle = palette.ring;
-    ctx.lineWidth = 1.25;
+    ctx.strokeStyle = palette.edges[reading.line];
+    ctx.lineWidth = Math.min(1.25, girth * 0.2);
     ctx.beginPath();
-    ctx.roundRect(-length / 2, -girth / 2, length, girth, girth / 2);
+    ctx.roundRect(-length / 2, -girth / 2, length, girth, 1.5);
     ctx.fill();
     ctx.stroke();
-    if (length > 13) {
-      ctx.fillStyle = palette.paper;
+    if (showHeading) {
+      // a chevron at the front, pointing the way it's heading
+      ctx.strokeStyle = palette.tints[reading.line];
+      ctx.lineWidth = girth * 0.2;
       ctx.beginPath();
-      ctx.arc(length / 2 - girth / 2, 0, girth * 0.2, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.moveTo(length / 2 - girth * 0.85, -girth * 0.275);
+      ctx.lineTo(length / 2 - girth * 0.45, 0);
+      ctx.lineTo(length / 2 - girth * 0.85, girth * 0.275);
+      ctx.stroke();
     }
     ctx.restore();
     hits.set(train.key, { ...p, radius: Math.max(14, length) });
   }
   ctx.globalAlpha = 1;
   if (focus.station !== null) {
-    ring(ctx, palette, toScreen(view, stations[focus.station]), Math.max(12, width * 2.6));
+    ring(ctx, palette, toScreen(view, layout.at[focus.station]), Math.max(12, width * 2.6));
   }
   if (you) {
-    const p = toScreen(view, you);
+    const p = toScreen(view, layout.place(you));
     ctx.fillStyle = palette.halo;
     ctx.globalAlpha = 0.2;
     ctx.beginPath();

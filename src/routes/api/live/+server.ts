@@ -3,9 +3,10 @@ import { live } from '#lib/server/tfl.js';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ platform }) => {
-  const body = await live((work) => platform?.ctx?.waitUntil(work)).catch(() =>
-    error(503, 'TfL is not answering right now')
-  );
+  const body = await live((work) => platform?.ctx?.waitUntil(work)).catch((err) => {
+    console.error('No reading to serve', err);
+    return error(503, 'TfL is not answering right now');
+  });
   return new Response(body, {
     headers: {
       'content-type': 'application/json',

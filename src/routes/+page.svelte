@@ -10,11 +10,13 @@
   import Search from '#lib/components/Search.svelte';
   import StationDetail from '#lib/components/StationDetail.svelte';
   import TrainDetail from '#lib/components/TrainDetail.svelte';
+  import type { Style } from '#lib/layout.js';
   import { isLineId, isModeId, lineById, linesIn, type LineId, type ModeId } from '#lib/lines.js';
   import { Live } from '#lib/live.svelte.js';
   import TubeMap, { type Tap } from '#lib/map/TubeMap.svelte';
-  import { description, site, source, title } from '#lib/meta.js';
+  import { description, imageAlt, name, site, source, structuredData, title } from '#lib/meta.js';
   import { distance, project, stationById, stations, type Point } from '#lib/network.js';
+  import { swipeToClose } from '#lib/swipe.js';
   import { Theme } from '#lib/theme.svelte.js';
 
   type Selection =
@@ -29,9 +31,12 @@
   const wide = new MediaQuery('min-width: 960px');
   const STALE_SECONDS = 90;
   const NEARBY_KM = 3;
-  const SAVED = 'tubespotting:modes';
+  const TUBE = linesIn(['tube']);
+  const SAVED = 'tubespotting:shown';
+  const SAVED_STYLE = 'tubespotting:style';
 
-  let extras = $state<ModeId[]>([]);
+  let modes = $state<ModeId[]>(['tube', 'elizabeth-line', 'dlr']);
+  let style = $state<Style>('schematic');
   let selection = $state<Selection>(null);
   let follow = $state(false);
   let searching = $state(false);
@@ -44,7 +49,7 @@
   let map: TubeMap;
   let routed = false;
 
-  const shown = $derived(linesIn(['tube', ...extras]));
+  const shown = $derived(linesIn(modes));
   const focus = $derived({
     shown,
     line: selection?.kind === 'line' ? selection.id : null,
@@ -65,6 +70,13 @@
     return [...live.fleet.trains.values()].filter(
       (train) => !train.gone && shown.has(train.reading.line)
     );
+  });
+  // the About sheet counts the Underground alone, whatever else is switched on
+  const underground = $derived.by(() => {
+    void live.snapshot;
+    return [...live.fleet.trains.values()].filter(
+      (train) => !train.gone && TUBE.has(train.reading.line)
+    ).length;
   });
   const counts = $derived.by(() => {
     const counts = new Map<LineId, number>();
@@ -91,19 +103,28 @@
     return selection?.kind === 'train' ? live.fleet.trains.get(selection.key) : undefined;
   });
 
-  function toggle(mode: ModeId) {
-    extras = extras.includes(mode) ? extras.filter((m) => m !== mode) : [...extras, mode];
+  function save(key: string, value: string) {
     try {
-      localStorage.setItem(SAVED, JSON.stringify(extras));
+      localStorage.setItem(key, value);
     } catch {
       // private browsing, so it's just forgotten next visit
     }
   }
 
+  function toggle(mode: ModeId) {
+    modes = modes.includes(mode) ? modes.filter((m) => m !== mode) : [...modes, mode];
+    save(SAVED, JSON.stringify(modes));
+  }
+
+  function flipStyle() {
+    style = style === 'schematic' ? 'geographic' : 'schematic';
+    save(SAVED_STYLE, style);
+  }
+
   // a link to a line or station that's switched off switches it on
   function reveal(line: LineId) {
     const { mode } = lineById(line)!;
-    if (!shown.has(line)) extras = [...extras, mode];
+    if (!shown.has(line)) modes = [...modes, mode];
   }
 
   function pickLine(id: LineId) {
@@ -149,6 +170,7 @@
         const [nearest] = stations
           .filter((s) => s.lines.some((line) => shown.has(line)))
           .sort((a, b) => distance(here, a) - distance(here, b));
+        if (!nearest) return (notice = 'Switch some lines on to find your nearest station');
         const km = distance(here, nearest) / 1000;
         if (km < NEARBY_KM) return pickStation(nearest.index);
         notice = `You're ${Math.round(km)} km from the nearest station`;
@@ -179,8 +201,10 @@
 
   onMount(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem(SAVED) ?? '[]');
-      if (Array.isArray(saved)) extras = saved.filter((mode) => mode !== 'tube' && isModeId(mode));
+      const saved = JSON.parse(localStorage.getItem(SAVED) ?? 'null');
+      if (Array.isArray(saved)) modes = saved.filter(isModeId);
+      const savedStyle = localStorage.getItem(SAVED_STYLE);
+      if (savedStyle === 'geographic' || savedStyle === 'schematic') style = savedStyle;
     } catch {
       // nothing saved, or nothing we can read
     }
@@ -217,13 +241,21 @@
 <svelte:head>
   <title>{title}</title>
   <meta name="description" content={description} />
+  <meta name="robots" content="max-image-preview:large" />
   <link rel="canonical" href={site} />
   <meta property="og:type" content="website" />
+  <meta property="og:site_name" content={name} />
+  <meta property="og:locale" content="en_GB" />
   <meta property="og:title" content={title} />
   <meta property="og:description" content={description} />
   <meta property="og:url" content={site} />
   <meta property="og:image" content="{site}/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content={imageAlt} />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image:alt" content={imageAlt} />
+  {@html `<script type="application/ld+json">${structuredData}</script>`}
 </svelte:head>
 
 <div class="app" class:open={selection !== null}>
@@ -233,6 +265,7 @@
     {focus}
     {follow}
     {inset}
+    {style}
     dark={theme.dark}
     {you}
     label="Map of the London Underground with {running.length} trains moving live"
@@ -271,6 +304,7 @@
         </button>
         <button
           type="button"
+          class="about"
           aria-label="About this map"
           aria-expanded={about}
           onclick={() => (about ? close() : (selection = { kind: 'about' }))}
@@ -294,11 +328,14 @@
     </header>
 
     {#if selection}
-      <section class="sheet" aria-label="Details">
-        <button type="button" class="dismiss" aria-label="Back to all lines" onclick={close}>
-          <Icon name={wide.current ? 'back' : 'close'} />
-          <span>All lines</span>
-        </button>
+      <section class="sheet" class:full={about} aria-label="Details">
+        <div class="grip" aria-hidden="true" {@attach swipeToClose(close)}></div>
+        {#if selection.kind !== 'about'}
+          <button type="button" class="dismiss" aria-label="Back to all lines" onclick={close}>
+            <Icon name={wide.current ? 'back' : 'close'} />
+            <span>All lines</span>
+          </button>
+        {/if}
         {#if selection.kind === 'line'}
           {@const id = selection.id}
           <LineDetail
@@ -328,7 +365,7 @@
             onpickstation={pickStation}
           />
         {:else}
-          <About />
+          <About trains={live.snapshot ? underground : null} onclose={close} />
         {/if}
       </section>
     {:else}
@@ -337,20 +374,36 @@
         {counts}
         waiting={!live.snapshot}
         {shown}
-        {extras}
+        {modes}
         onpick={pickLine}
         ontoggle={toggle}
       />
-      <a class="source" href={source} aria-label="Source on GitHub"><Icon name="github" /></a>
+      <footer class="links">
+        <button type="button" class="link primary" onclick={() => (selection = { kind: 'about' })}>
+          <Icon name="info" size={16} />About
+        </button>
+        <a class="link" href={source} target="_blank" rel="noopener"
+          ><Icon name="github" size={16} />GitHub</a
+        >
+      </footer>
     {/if}
   </aside>
 
   <div class="controls" style:--lift="{inset.bottom}px">
     {#if notice}<p class="notice" role="status">{notice}</p>{/if}
-    <button type="button" aria-label="Zoom in" onclick={() => map.zoomBy(1.6)}
+    <button
+      type="button"
+      aria-label="Tube map"
+      aria-pressed={style === 'schematic'}
+      title={style === 'schematic' ? 'Show the real geography' : 'Show the tube map'}
+      onclick={flipStyle}
+    >
+      <Icon name={style === 'schematic' ? 'map' : 'tube'} />
+    </button>
+    <button type="button" class="zoom" aria-label="Zoom in" onclick={() => map.zoomBy(1.6)}
       ><Icon name="plus" /></button
     >
-    <button type="button" aria-label="Zoom out" onclick={() => map.zoomBy(1 / 1.6)}
+    <button type="button" class="zoom" aria-label="Zoom out" onclick={() => map.zoomBy(1 / 1.6)}
       ><Icon name="minus" /></button
     >
     <button type="button" aria-label="Show where I am" onclick={locate}
@@ -435,8 +488,7 @@
   }
 
   .actions button,
-  .controls button,
-  .source {
+  .controls button {
     display: grid;
     place-items: center;
     width: var(--tap);
@@ -468,7 +520,7 @@
     max-height: 58dvh;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: var(--space-3) var(--space-4) var(--space-5);
+    padding: 0 var(--space-4) var(--space-5);
     border-radius: var(--radius) var(--radius) 0 0;
     background: var(--surface);
     box-shadow: var(--shadow);
@@ -479,6 +531,29 @@
     from {
       translate: 0 24px;
       opacity: 0;
+    }
+  }
+
+  /* stays put while the sheet scrolls, so it can always be pulled down */
+  .grip {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    box-sizing: content-box;
+    height: var(--space-5);
+    margin-inline: calc(-1 * var(--space-4));
+    background: var(--surface);
+    touch-action: none;
+    cursor: grab;
+
+    &::before {
+      content: '';
+      width: 36px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--rule);
     }
   }
 
@@ -509,9 +584,14 @@
     justify-items: end;
     gap: var(--space-2);
     transition: bottom 320ms var(--ease-out);
+    pointer-events: none;
+
+    > * {
+      pointer-events: auto;
+    }
   }
 
-  .source {
+  .links {
     display: none;
   }
 
@@ -527,6 +607,34 @@
   @media (max-width: 959px) {
     .app.open .controls {
       display: none;
+    }
+
+    /* phones pinch to zoom */
+    .controls .zoom {
+      display: none;
+    }
+
+    /* the panel floats over the map, so a drag that misses the sheet or a line still moves it */
+    .panel {
+      pointer-events: none;
+    }
+
+    .sheet {
+      pointer-events: auto;
+    }
+
+    /* About is all reading and no map, so it takes the whole screen */
+    .sheet.full {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      max-height: none;
+      padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom));
+      border-radius: 0;
+
+      .grip {
+        padding-top: env(safe-area-inset-top);
+      }
     }
   }
 
@@ -567,15 +675,55 @@
       background: var(--surface-sunk);
     }
 
-    .source {
-      display: grid;
-      margin: auto var(--space-4) var(--space-4);
-      box-shadow: none;
-      color: var(--text-muted);
+    /* the footer has it on desktop */
+    .actions .about {
+      display: none;
+    }
+
+    .links {
+      position: sticky;
+      bottom: 0;
+      display: flex;
+      gap: var(--space-2);
+      margin-top: auto;
+      padding: var(--space-3) var(--space-4);
+      border-top: 1px solid var(--rule);
+      background: var(--surface);
+    }
+
+    .link {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      min-height: 36px;
+      padding: 0 var(--space-3);
+      border: 0;
+      border-radius: var(--radius-small);
+      background: none;
+      box-shadow: inset 0 0 0 1.5px var(--accent);
+      color: var(--accent);
+      font: 14px/1.1 var(--font-display);
+      text-decoration: none;
 
       &:hover {
-        color: var(--text);
+        background: var(--surface-sunk);
       }
+
+      &.primary {
+        background: var(--accent);
+        box-shadow: none;
+        color: var(--accent-ink);
+
+        &:hover {
+          filter: brightness(1.15);
+        }
+      }
+    }
+
+    .grip {
+      display: none;
     }
 
     .sheet {

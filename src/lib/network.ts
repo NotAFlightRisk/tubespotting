@@ -1,5 +1,5 @@
 import data from './data/network.json' with { type: 'json' };
-import { LINE_IDS, type LineId } from './lines.js';
+import type { LineId } from './lines.js';
 
 export interface Point {
   x: number;
@@ -33,6 +33,11 @@ export const unproject = ({ x, y }: Point) => ({
 
 export const distance = (a: Point, b: Point) => Math.hypot(b.x - a.x, b.y - a.y);
 
+export const middle = (points: Point[]): Point => ({
+  x: points.reduce((sum, p) => sum + p.x, 0) / points.length,
+  y: points.reduce((sum, p) => sum + p.y, 0) / points.length
+});
+
 const pair = (a: number, b: number) => (a < b ? `${a}-${b}` : `${b}-${a}`);
 
 export const stations: Station[] = data.stations.map((s, index) => ({
@@ -48,10 +53,6 @@ export const stations: Station[] = data.stations.map((s, index) => ({
 
 export const stationById = new Map(stations.map((s) => [s.id, s]));
 
-export const thames: Point[][] = data.thames.map((way) =>
-  way.map(([lon, lat]) => project(lon, lat))
-);
-
 interface LineData {
   id: LineId;
   routes: number[][];
@@ -65,9 +66,6 @@ const link = (graph: Map<number, Set<number>>, a: number, b: number) => {
   graph.set(b, (graph.get(b) ?? new Set()).add(a));
 };
 
-// Every station pair any line runs between, for spotting trains that skip stops
-const everyLink = new Map<number, Set<number>>();
-
 /** Each line's calls as TfL runs them, for working out which train is which */
 export const routeGraph = new Map<LineId, Map<number, Set<number>>>();
 
@@ -75,7 +73,6 @@ for (const line of lineData) {
   const graph = new Map<number, Set<number>>();
   for (const route of line.routes) {
     for (let i = 1; i < route.length; i++) {
-      link(everyLink, route[i - 1], route[i]);
       link(graph, route[i - 1], route[i]);
     }
     for (const stop of route) {
@@ -85,63 +82,27 @@ for (const line of lineData) {
   routeGraph.set(line.id, graph);
 }
 
-/** Shortest way round a link through other stations, if it's nearly as straight as the link */
-function stoppingPath(a: number, b: number): number[] | null {
-  const chord = distance(stations[a], stations[b]);
-  const best = new Map<number, number>([[a, 0]]);
-  const via = new Map<number, number>();
-  const queue = [a];
-  while (queue.length) {
-    queue.sort((p, q) => best.get(p)! - best.get(q)!);
-    const here = queue.shift()!;
-    if (here === b) break;
-    for (const next of everyLink.get(here) ?? []) {
-      if (here === a && next === b) continue;
-      const cost = best.get(here)! + distance(stations[here], stations[next]);
-      if (cost > chord * 1.2 || cost >= (best.get(next) ?? Infinity)) continue;
-      best.set(next, cost);
-      via.set(next, here);
-      queue.push(next);
-    }
-  }
-  if (!via.has(b)) return null;
-  const path = [b];
-  while (path[0] !== a) path.unshift(via.get(path[0])!);
-  return path;
-}
-
-const expanded = new Map<string, number[]>();
-const expand = (a: number, b: number): number[] => {
-  const key = `${a}>${b}`;
-  if (!expanded.has(key)) expanded.set(key, stoppingPath(a, b) ?? [a, b]);
-  return expanded.get(key)!;
-};
-
 export interface Track {
   a: number;
   b: number;
   lines: LineId[];
 }
 
-/** Each line's drawn graph, with fast runs laid along the stations they skip */
-export const lineGraph = new Map<LineId, Map<number, Set<number>>>();
-const trackByPair = new Map<string, Track>();
+/** Track between neighbouring stations, with fast runs already laid along the stops they skip */
+export const tracks: Track[] = (data.tracks as unknown as Track[]).map(({ a, b, lines }) => ({
+  a,
+  b,
+  lines
+}));
+const trackByPair = new Map(tracks.map((track) => [pair(track.a, track.b), track]));
 
-for (const line of lineData) {
-  const graph = new Map<number, Set<number>>();
-  for (const route of line.routes) {
-    for (let i = 1; i < route.length; i++) {
-      const path = expand(route[i - 1], route[i]);
-      for (let j = 1; j < path.length; j++) {
-        const [a, b] = [Math.min(path[j - 1], path[j]), Math.max(path[j - 1], path[j])];
-        link(graph, a, b);
-        const track = trackByPair.get(pair(a, b)) ?? { a, b, lines: [] };
-        if (!track.lines.includes(line.id)) track.lines.push(line.id);
-        trackByPair.set(pair(a, b), track);
-      }
-    }
+/** Each line's drawn graph */
+export const lineGraph = new Map<LineId, Map<number, Set<number>>>();
+for (const { a, b, lines } of tracks) {
+  for (const line of lines) {
+    if (!lineGraph.has(line)) lineGraph.set(line, new Map());
+    link(lineGraph.get(line)!, a, b);
   }
-  lineGraph.set(line.id, graph);
 }
 
 /** A line's drawn graph as unbroken runs between its ends and junctions */
@@ -172,22 +133,18 @@ function runsOf(graph: Map<number, Set<number>>): number[][] {
 
 export const lineRuns = new Map([...lineGraph].map(([line, graph]) => [line, runsOf(graph)]));
 
-export const tracks: Track[] = [...trackByPair.values()];
-for (const track of tracks) {
-  track.lines.sort((p, q) => LINE_IDS.indexOf(p) - LINE_IDS.indexOf(q));
+/** How many strands a line sits to one side of a shared track's middle, heading from a to b */
+export function lane(a: number, b: number, line: LineId): number {
+  const lines = trackByPair.get(pair(a, b))?.lines ?? [line];
+  const slot = lines.indexOf(line) - (lines.length - 1) / 2;
+  return a < b ? slot : -slot;
 }
 
-/** How far a line sits from the middle of a shared track, in strands */
-export function strand(a: number, b: number, line: LineId): { slot: number; normal: Point } {
-  const track = trackByPair.get(pair(a, b));
-  const lines = track?.lines ?? [line];
-  const [from, to] = a < b ? [stations[a], stations[b]] : [stations[b], stations[a]];
+/** The side a lane leans to, square to a heading */
+export const sideways = (from: Point, to: Point): Point => {
   const length = distance(from, to) || 1;
-  return {
-    slot: lines.indexOf(line) - (lines.length - 1) / 2,
-    normal: { x: -(to.y - from.y) / length, y: (to.x - from.x) / length }
-  };
-}
+  return { x: -(to.y - from.y) / length, y: (to.x - from.x) / length };
+};
 
 type Cache<T> = Map<LineId, Map<number, T>>;
 

@@ -1,6 +1,10 @@
 #!/usr/bin/env node
-// Rebuilds src/lib/data/network.json from TfL, plus the Thames from OpenStreetMap
-import { writeFile } from 'node:fs/promises';
+// Rebuilds src/lib/data/network.json from TfL, plus track shapes and the Thames from OpenStreetMap.
+// With --tube-map it only lays the tube map out again, over the network already there
+import { readFile, writeFile } from 'node:fs/promises';
+import { distance, project, round } from './geo.mjs';
+import { thames, trackShapes, UA } from './osm.mjs';
+import { schematic } from './schematic.mjs';
 
 const LINES = [
   'bakerloo',
@@ -27,14 +31,8 @@ const LINES = [
 const DIRECTIONS = ['inbound', 'outbound'];
 const OUT = new URL('../src/lib/data/network.json', import.meta.url);
 const TFL = 'https://api.tfl.gov.uk';
-const OVERPASS = 'https://overpass-api.de/api/interpreter';
-const THAMES =
-  '[out:json][timeout:60];way["waterway"="river"]["name"="River Thames"]' +
-  '(51.36,-0.62,51.56,0.35);out geom;';
-const UA = 'tubespotting/1.0 (+https://github.com/NotAFlightRisk/tubespotting)';
 
 const wait = (ms) => new Promise((done) => setTimeout(done, ms));
-const round = (n) => Math.round(n * 1e5) / 1e5;
 
 async function tfl(path, params = {}) {
   const url = new URL(TFL + path);
@@ -84,39 +82,58 @@ async function runTimes(lineId, direction, origins, into) {
   }
 }
 
-async function thames() {
-  const res = await fetch(OVERPASS, {
-    method: 'POST',
-    headers: { 'user-agent': UA, accept: 'application/json' },
-    body: new URLSearchParams({ data: THAMES })
-  });
-  if (!res.ok) throw new Error(`Overpass ${res.status}`);
-  const { elements } = await res.json();
-  return elements.map((way) => simplify(way.geometry.map((p) => [round(p.lon), round(p.lat)])));
+const link = (graph, a, b) => {
+  graph.set(a, (graph.get(a) ?? new Set()).add(b));
+  graph.set(b, (graph.get(b) ?? new Set()).add(a));
+};
+
+/** Shortest way round a link through other stations, if it's nearly as straight as the link */
+function stoppingPath(links, at, a, b) {
+  const chord = distance(at[a], at[b]);
+  const best = new Map([[a, 0]]);
+  const via = new Map();
+  const queue = [a];
+  while (queue.length) {
+    queue.sort((p, q) => best.get(p) - best.get(q));
+    const here = queue.shift();
+    if (here === b) break;
+    for (const next of links.get(here) ?? []) {
+      if (here === a && next === b) continue;
+      const cost = best.get(here) + distance(at[here], at[next]);
+      if (cost > chord * 1.2 || cost >= (best.get(next) ?? Infinity)) continue;
+      best.set(next, cost);
+      via.set(next, here);
+      queue.push(next);
+    }
+  }
+  if (!via.has(b)) return [a, b];
+  const path = [b];
+  while (path[0] !== a) path.unshift(via.get(path[0]));
+  return path;
 }
 
-// Douglas-Peucker in rough metres, plenty for a river drawn as a band
-function simplify(points, tolerance = 20) {
-  if (points.length < 3) return points;
-  const kx = 111_320 * Math.cos((51.5 * Math.PI) / 180);
-  const ky = 110_574;
-  const [a, b] = [points[0], points.at(-1)];
-  const dx = (b[0] - a[0]) * kx;
-  const dy = (b[1] - a[1]) * ky;
-  const length = Math.hypot(dx, dy) || 1;
-  let worst = 0;
-  let index = 0;
-  for (let i = 1; i < points.length - 1; i++) {
-    const px = (points[i][0] - a[0]) * kx;
-    const py = (points[i][1] - a[1]) * ky;
-    const distance = Math.abs(dx * py - dy * px) / length;
-    if (distance > worst) [worst, index] = [distance, i];
+/** Track between neighbouring stations and the lines on it, with fast runs laid along the stops they skip */
+function drawnTracks(stations, lines) {
+  const at = stations.map((s) => project([s.lon, s.lat]));
+  const links = new Map();
+  for (const stops of lines.flatMap((line) => line.routes)) {
+    for (let i = 1; i < stops.length; i++) link(links, stops[i - 1], stops[i]);
   }
-  if (worst <= tolerance) return [a, b];
-  return [
-    ...simplify(points.slice(0, index + 1), tolerance).slice(0, -1),
-    ...simplify(points.slice(index), tolerance)
-  ];
+  const tracks = new Map();
+  for (const line of lines) {
+    for (const stops of line.routes) {
+      for (let i = 1; i < stops.length; i++) {
+        const path = stoppingPath(links, at, stops[i - 1], stops[i]);
+        for (let j = 1; j < path.length; j++) {
+          const [a, b] = [Math.min(path[j - 1], path[j]), Math.max(path[j - 1], path[j])];
+          const track = tracks.get(`${a}-${b}`) ?? { a, b, lines: [] };
+          if (!track.lines.includes(line.id)) track.lines.push(line.id);
+          tracks.set(`${a}-${b}`, track);
+        }
+      }
+    }
+  }
+  return [...tracks.values()];
 }
 
 async function main() {
@@ -165,33 +182,52 @@ async function main() {
   const missing = lines.flatMap((line) => line.routes.flat()).filter((id) => !index.has(id));
   if (missing.length) throw new Error(`Routes name unknown stations: ${[...new Set(missing)]}`);
 
+  const indexed = lines.map((line) => ({
+    id: line.id,
+    routes: line.routes.map((stops) => stops.map((id) => index.get(id))),
+    runs: Object.fromEntries(
+      Object.entries(line.runs)
+        .filter(([key]) => key.split('>').every((id) => index.has(id)))
+        .map(([key, seconds]) => [
+          key
+            .split('>')
+            .map((id) => index.get(id))
+            .join('>'),
+          seconds
+        ])
+    )
+  }));
+  const everyStation = [...stations.values()];
+  const tracks = drawnTracks(everyStation, indexed);
+  const shapes = await trackShapes(everyStation, tracks);
+  const river = await thames();
+  const tubeMap = schematic(everyStation, tracks);
   const network = {
     generated: new Date().toISOString(),
-    stations: [...stations.values()],
-    lines: lines.map((line) => ({
-      id: line.id,
-      routes: line.routes.map((stops) => stops.map((id) => index.get(id))),
-      runs: Object.fromEntries(
-        Object.entries(line.runs)
-          .filter(([key]) => key.split('>').every((id) => index.has(id)))
-          .map(([key, seconds]) => [
-            key
-              .split('>')
-              .map((id) => index.get(id))
-              .join('>'),
-            seconds
-          ])
-      )
-    })),
-    thames: await thames()
+    stations: everyStation.map((station, i) => ({ ...station, tube: tubeMap.at[i] })),
+    lines: indexed,
+    tracks: tracks.map((track, i) => ({ ...track, geo: shapes[i], tube: tubeMap.bends[i] })),
+    thames: { geo: river, tube: tubeMap.river }
   };
   await writeFile(OUT, JSON.stringify(network));
-  const points = network.thames.reduce((sum, way) => sum + way.length, 0);
-  console.log(`\n${ids.length} stations, ${network.thames.length} river ways (${points} points)`);
+  const points = river.reduce((sum, way) => sum + way.length, 0);
+  console.log(
+    `\n${ids.length} stations, ${tracks.length} tracks, ${river.length} river ways (${points} points)`
+  );
+}
+
+/** The saved network with its tube map laid out afresh, for when only tube-map.mjs has changed */
+async function relayout() {
+  const network = JSON.parse(await readFile(OUT, 'utf8'));
+  const { at, bends, river } = schematic(network.stations, network.tracks);
+  network.stations.forEach((station, i) => (station.tube = at[i]));
+  network.tracks.forEach((track, i) => (track.tube = bends[i]));
+  network.thames.tube = river;
+  await writeFile(OUT, JSON.stringify(network));
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch((err) => {
+  (process.argv.includes('--tube-map') ? relayout() : main()).catch((err) => {
     console.error(err);
     process.exit(1);
   });
