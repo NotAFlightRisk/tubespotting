@@ -24,12 +24,13 @@ export const LINE_IDS = [
 export type LineId = (typeof LINE_IDS)[number];
 
 /** TfL's own mode ids, which its status endpoint wants */
+// each with the ring colour of its own roundel
 export const MODES = [
-  { id: 'tube', name: 'Tube' },
-  { id: 'elizabeth-line', name: 'Elizabeth line' },
-  { id: 'overground', name: 'Overground' },
-  { id: 'dlr', name: 'DLR' },
-  { id: 'tram', name: 'Trams' }
+  { id: 'tube', name: 'Tube', roundel: '#dc241f' },
+  { id: 'elizabeth-line', name: 'Elizabeth line', roundel: '#6950a1' },
+  { id: 'overground', name: 'Overground', roundel: '#ee7c0e' },
+  { id: 'dlr', name: 'DLR', roundel: '#00afad' },
+  { id: 'tram', name: 'Trams', roundel: '#5fb526' }
 ] as const;
 
 export type ModeId = (typeof MODES)[number]['id'];
