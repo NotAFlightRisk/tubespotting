@@ -30,10 +30,10 @@
   const wide = new MediaQuery('min-width: 960px');
   const STALE_SECONDS = 90;
   const NEARBY_KM = 3;
-  const SAVED = 'tubespotting:modes';
+  const SAVED = 'tubespotting:shown';
   const SAVED_STYLE = 'tubespotting:style';
 
-  let extras = $state<ModeId[]>([]);
+  let modes = $state<ModeId[]>(['tube']);
   let style = $state<Style>('geographic');
   let selection = $state<Selection>(null);
   let follow = $state(false);
@@ -47,7 +47,7 @@
   let map: TubeMap;
   let routed = false;
 
-  const shown = $derived(linesIn(['tube', ...extras]));
+  const shown = $derived(linesIn(modes));
   const focus = $derived({
     shown,
     line: selection?.kind === 'line' ? selection.id : null,
@@ -103,8 +103,8 @@
   }
 
   function toggle(mode: ModeId) {
-    extras = extras.includes(mode) ? extras.filter((m) => m !== mode) : [...extras, mode];
-    save(SAVED, JSON.stringify(extras));
+    modes = modes.includes(mode) ? modes.filter((m) => m !== mode) : [...modes, mode];
+    save(SAVED, JSON.stringify(modes));
   }
 
   function flipStyle() {
@@ -115,7 +115,7 @@
   // a link to a line or station that's switched off switches it on
   function reveal(line: LineId) {
     const { mode } = lineById(line)!;
-    if (!shown.has(line)) extras = [...extras, mode];
+    if (!shown.has(line)) modes = [...modes, mode];
   }
 
   function pickLine(id: LineId) {
@@ -161,6 +161,7 @@
         const [nearest] = stations
           .filter((s) => s.lines.some((line) => shown.has(line)))
           .sort((a, b) => distance(here, a) - distance(here, b));
+        if (!nearest) return (notice = 'Switch some lines on to find your nearest station');
         const km = distance(here, nearest) / 1000;
         if (km < NEARBY_KM) return pickStation(nearest.index);
         notice = `You're ${Math.round(km)} km from the nearest station`;
@@ -191,8 +192,8 @@
 
   onMount(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem(SAVED) ?? '[]');
-      if (Array.isArray(saved)) extras = saved.filter((mode) => mode !== 'tube' && isModeId(mode));
+      const saved = JSON.parse(localStorage.getItem(SAVED) ?? 'null');
+      if (Array.isArray(saved)) modes = saved.filter(isModeId);
       const savedStyle = localStorage.getItem(SAVED_STYLE);
       if (savedStyle === 'geographic' || savedStyle === 'schematic') style = savedStyle;
     } catch {
@@ -352,7 +353,7 @@
         {counts}
         waiting={!live.snapshot}
         {shown}
-        {extras}
+        {modes}
         onpick={pickLine}
         ontoggle={toggle}
       />

@@ -25,7 +25,7 @@ export type LineId = (typeof LINE_IDS)[number];
 
 /** TfL's own mode ids, which its status endpoint wants */
 export const MODES = [
-  { id: 'tube', name: 'Underground' },
+  { id: 'tube', name: 'Tube' },
   { id: 'elizabeth-line', name: 'Elizabeth line' },
   { id: 'overground', name: 'Overground' },
   { id: 'dlr', name: 'DLR' },

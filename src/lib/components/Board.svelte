@@ -9,14 +9,12 @@
     counts: Map<LineId, number>;
     waiting: boolean;
     shown: Set<LineId>;
-    extras: ModeId[];
+    modes: ModeId[];
     onpick: (line: LineId) => void;
     ontoggle: (mode: ModeId) => void;
   }
 
-  let { status, counts, waiting, shown, extras, onpick, ontoggle }: Props = $props();
-
-  const OPTIONAL = MODES.filter((mode) => mode.id !== 'tube');
+  let { status, counts, waiting, shown, modes, onpick, ontoggle }: Props = $props();
 
   const byLine = $derived(new Map(status.map((s) => [s.id, s])));
 </script>
@@ -44,9 +42,9 @@
         </button>
       </li>
     {/each}
-    {#each OPTIONAL as mode (mode.id)}
-      {@const on = extras.includes(mode.id)}
-      <li class="optional">
+    {#each MODES as mode (mode.id)}
+      {@const on = modes.includes(mode.id)}
+      <li class="filter">
         <button type="button" class="mode" aria-pressed={on} onclick={() => ontoggle(mode.id)}>
           <Icon name={on ? 'check' : 'plus'} size={16} />
           {mode.name}
@@ -208,7 +206,7 @@
       }
     }
 
-    :not(.optional) + .optional {
+    :not(.filter) + .filter {
       margin-top: var(--space-3);
       border-top: 1px solid var(--rule);
       padding-top: var(--space-2);
