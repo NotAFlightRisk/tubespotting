@@ -1,11 +1,12 @@
+import { layouts, pointAlong, type Layout } from './layout.js';
 import type { LineId } from './lines.js';
 import {
   distance,
+  lane,
   lineGraph,
   pathBetween,
   runTime,
   stations,
-  strand,
   type Point
 } from './network.js';
 import type { TrainReading } from './types.js';
@@ -25,7 +26,7 @@ export interface Placement extends Point {
   angle: number;
   /** Set while the train is stood at a station */
   at: number | null;
-  /** The neighbouring stations either side of it, and how far along between them */
+  /** The neighbouring stations either side of it, and how far along the track between them */
   between: [number, number];
   f: number;
 }
@@ -109,7 +110,8 @@ export function schedule(train: TrainReading, at: number, runs: Runs = new Map()
 
 const ease = (f: number) => 0.5 - 0.5 * Math.cos(Math.PI * f);
 
-function along(line: LineId, path: number[], fraction: number): Placement {
+// time is shared out by real distance, so a train keeps the same pace on either map
+function along(line: LineId, path: number[], fraction: number, layout: Layout): Placement {
   let total = 0;
   const lengths = path.slice(1).map((stop, i) => {
     const length = distance(stations[path[i]], stations[stop]);
@@ -122,48 +124,36 @@ function along(line: LineId, path: number[], fraction: number): Placement {
       left -= lengths[i];
       continue;
     }
-    const [a, b] = [stations[path[i]], stations[path[i + 1]]];
+    const [a, b] = [path[i], path[i + 1]];
     const f = lengths[i] ? Math.min(1, left / lengths[i]) : 0;
-    const { slot, normal } = strand(path[i], path[i + 1], line);
-    return {
-      x: a.x + (b.x - a.x) * f,
-      y: a.y + (b.y - a.y) * f,
-      ox: normal.x * slot,
-      oy: normal.y * slot,
-      angle: Math.atan2(b.y - a.y, b.x - a.x),
-      at: null,
-      between: [path[i], path[i + 1]],
-      f
-    };
+    const { x, y, angle, side } = pointAlong(layout.shape(a, b), f);
+    const shift = lane(a, b, line);
+    return { x, y, ox: side.x * shift, oy: side.y * shift, angle, at: null, between: [a, b], f };
   }
-  return standing(line, path[0], path[0]);
+  return standing(line, path[0], path[0], layout);
 }
 
-function standing(line: LineId, station: number, towards: number): Placement {
-  const path = pathBetween(line, station, towards);
-  const next = path?.[1];
+function standing(line: LineId, station: number, towards: number, layout: Layout): Placement {
+  const next = pathBetween(line, station, towards)?.[1];
   if (next === undefined) {
-    return {
-      ...pointOf(station),
-      ox: 0,
-      oy: 0,
-      angle: 0,
-      at: station,
-      between: [station, station],
-      f: 0
-    };
+    const { x, y } = layout.at[station];
+    return { x, y, ox: 0, oy: 0, angle: 0, at: station, between: [station, station], f: 0 };
   }
-  return { ...along(line, [station, next], 0), at: station };
+  return { ...along(line, [station, next], 0, layout), at: station };
 }
-
-const pointOf = (index: number): Point => ({ x: stations[index].x, y: stations[index].y });
 
 /** Where a train is at time `t` (epoch seconds), assuming it keeps to TfL's estimates */
-export function locate(line: LineId, legs: Leg[], fallback: number, t: number): Placement {
+export function locate(
+  line: LineId,
+  legs: Leg[],
+  fallback: number,
+  t: number,
+  layout = layouts.geographic
+): Placement {
   const leg = legs.find((l) => t < l.arrive) ?? legs.at(-1);
-  if (!leg) return standing(line, fallback, fallback);
-  if (t < leg.depart) return standing(line, leg.from, leg.to);
+  if (!leg) return standing(line, fallback, fallback, layout);
+  if (t < leg.depart) return standing(line, leg.from, leg.to, layout);
   const path = pathBetween(line, leg.from, leg.to) ?? [leg.from, leg.to];
   const progress = Math.min(1, (t - leg.depart) / Math.max(leg.arrive - leg.depart, MIN_RUN));
-  return { ...along(line, path, ease(progress)), at: progress === 1 ? leg.to : null };
+  return { ...along(line, path, ease(progress), layout), at: progress === 1 ? leg.to : null };
 }

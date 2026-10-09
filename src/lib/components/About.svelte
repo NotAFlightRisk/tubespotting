@@ -20,8 +20,8 @@
 <h3>Credits</h3>
 <p class="small">
   Powered by TfL Open Data. Contains OS data © Crown copyright and database rights 2016 and Geomni
-  UK Map data © and database rights [2019]. The Thames is © OpenStreetMap contributors. Not
-  affiliated with TfL.
+  UK Map data © and database rights [2019]. Track shapes and the Thames are © OpenStreetMap
+  contributors. Not affiliated with TfL.
 </p>
 <p class="small">
   <a href={source}>Source on GitHub</a>

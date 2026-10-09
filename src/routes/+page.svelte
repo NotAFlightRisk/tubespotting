@@ -10,6 +10,7 @@
   import Search from '#lib/components/Search.svelte';
   import StationDetail from '#lib/components/StationDetail.svelte';
   import TrainDetail from '#lib/components/TrainDetail.svelte';
+  import type { Style } from '#lib/layout.js';
   import { isLineId, isModeId, lineById, linesIn, type LineId, type ModeId } from '#lib/lines.js';
   import { Live } from '#lib/live.svelte.js';
   import TubeMap, { type Tap } from '#lib/map/TubeMap.svelte';
@@ -30,8 +31,10 @@
   const STALE_SECONDS = 90;
   const NEARBY_KM = 3;
   const SAVED = 'tubespotting:modes';
+  const SAVED_STYLE = 'tubespotting:style';
 
   let extras = $state<ModeId[]>([]);
+  let style = $state<Style>('geographic');
   let selection = $state<Selection>(null);
   let follow = $state(false);
   let searching = $state(false);
@@ -91,13 +94,22 @@
     return selection?.kind === 'train' ? live.fleet.trains.get(selection.key) : undefined;
   });
 
-  function toggle(mode: ModeId) {
-    extras = extras.includes(mode) ? extras.filter((m) => m !== mode) : [...extras, mode];
+  function save(key: string, value: string) {
     try {
-      localStorage.setItem(SAVED, JSON.stringify(extras));
+      localStorage.setItem(key, value);
     } catch {
       // private browsing, so it's just forgotten next visit
     }
+  }
+
+  function toggle(mode: ModeId) {
+    extras = extras.includes(mode) ? extras.filter((m) => m !== mode) : [...extras, mode];
+    save(SAVED, JSON.stringify(extras));
+  }
+
+  function flipStyle() {
+    style = style === 'schematic' ? 'geographic' : 'schematic';
+    save(SAVED_STYLE, style);
   }
 
   // a link to a line or station that's switched off switches it on
@@ -181,6 +193,8 @@
     try {
       const saved = JSON.parse(localStorage.getItem(SAVED) ?? '[]');
       if (Array.isArray(saved)) extras = saved.filter((mode) => mode !== 'tube' && isModeId(mode));
+      const savedStyle = localStorage.getItem(SAVED_STYLE);
+      if (savedStyle === 'geographic' || savedStyle === 'schematic') style = savedStyle;
     } catch {
       // nothing saved, or nothing we can read
     }
@@ -233,6 +247,7 @@
     {focus}
     {follow}
     {inset}
+    {style}
     dark={theme.dark}
     {you}
     label="Map of the London Underground with {running.length} trains moving live"
@@ -347,6 +362,15 @@
 
   <div class="controls" style:--lift="{inset.bottom}px">
     {#if notice}<p class="notice" role="status">{notice}</p>{/if}
+    <button
+      type="button"
+      aria-label="Tube map"
+      aria-pressed={style === 'schematic'}
+      title={style === 'schematic' ? 'Show the real geography' : 'Show the tube map'}
+      onclick={flipStyle}
+    >
+      <Icon name={style === 'schematic' ? 'map' : 'tube'} />
+    </button>
     <button type="button" aria-label="Zoom in" onclick={() => map.zoomBy(1.6)}
       ><Icon name="plus" /></button
     >

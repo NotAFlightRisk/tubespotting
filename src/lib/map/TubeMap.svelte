@@ -4,8 +4,9 @@
   import { zoom, zoomIdentity, type ZoomBehavior } from 'd3-zoom';
   import { onMount } from 'svelte';
   import { MediaQuery } from 'svelte/reactivity';
+  import { between, layouts, type Layout, type Style } from '#lib/layout.js';
   import type { Live } from '#lib/live.svelte.js';
-  import type { Point } from '#lib/network.js';
+  import { distance, middle, type Point } from '#lib/network.js';
   import {
     paintLabels,
     paintNetwork,
@@ -17,7 +18,7 @@
     type Palette
   } from './painter.js';
   import { readPalette } from './palette.js';
-  import { toWorld, type View } from './view.js';
+  import { toScreen, toWorld, type View } from './view.js';
 
   export type Tap = { kind: 'train'; key: string } | { kind: 'station'; index: number } | null;
 
@@ -26,6 +27,7 @@
     focus: Pick<Focus, 'shown' | 'line' | 'station' | 'train'>;
     follow: boolean;
     inset: Inset;
+    style: Style;
     dark: boolean;
     label: string;
     you: Point | null;
@@ -33,11 +35,12 @@
     onwander: () => void;
   }
 
-  let { live, focus, follow, inset, dark, label, you, onpick, onwander }: Props = $props();
+  let { live, focus, follow, inset, style, dark, label, you, onpick, onwander }: Props = $props();
 
   const calm = new MediaQuery('prefers-reduced-motion: reduce');
   // out to Reading, so the Elizabeth line fits
   const LONDON = { x0: -66_000, y0: -28_000, x1: 38_000, y1: 22_000 };
+  const [FURTHEST, CLOSEST] = [0.004, 1.6];
   // roughly zones 1 and 2, or just zone 1 on a phone
   const START = (wide: boolean) => [
     { x: wide ? -8_000 : -3_800, y: wide ? -5_500 : -3_000 },
@@ -52,6 +55,8 @@
   let size = { width: 0, height: 0 };
   let palette: Palette | null = null;
   let dirty = true;
+  /** When the last frame was drawn */
+  let painted = 0;
   let stationHits = new Map<number, Hit>();
   let labels: Label[] = [];
   let outgoing: Label[] = [];
@@ -61,8 +66,12 @@
 
   const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
 
-  /** Zooms to fit some points in the bit of the map the panels aren't covering */
-  export function flyTo(points: Point[], maxK = 0.12, instant = false) {
+  /** Zooms to fit some real places in the bit of the map the panels aren't covering */
+  export function flyTo(places: Point[], maxK = 0.12, instant = false) {
+    fit(places.map(layouts[style].place), maxK, instant);
+  }
+
+  function fit(points: Point[], maxK: number, instant = false) {
     if (!points.length || !size.width) return;
     const xs = points.map((p) => p.x);
     const ys = points.map((p) => p.y);
@@ -161,11 +170,69 @@
     return { ...focus, previous: fading.from, fade: 1 - (1 - progress) ** 3 };
   };
 
+  // switching maps folds one into the other round the station in the middle, zooming as it
+  // goes so the same stations stay in view
+  type Pin = { station: number; at: Point; zoom: [number, number] };
+  let morph = {
+    from: layouts.geographic,
+    to: layouts.geographic,
+    since: -Infinity,
+    pin: null as Pin | null
+  };
+  const MORPH_MS = 900;
+
+  const easeInOut = (t: number) => (t < 0.5 ? 4 * t ** 3 : 1 - (2 - 2 * t) ** 3 / 2);
+  const morphAt = (now: number) =>
+    easeInOut(calm.current ? 1 : Math.min(1, (now - morph.since) / MORPH_MS));
+
+  function layoutAt(now: number): Layout {
+    const t = morphAt(now);
+    return t === 1 ? morph.to : between(morph.from, morph.to, t);
+  }
+
+  /** How spread out some stations are on a map */
+  function spread(layout: Layout, stations: number[]) {
+    const points = stations.map((i) => layout.at[i]);
+    const centre = middle(points);
+    return Math.sqrt(points.reduce((sum, p) => sum + distance(p, centre) ** 2, 0) / points.length);
+  }
+
+  /** The station in the middle of the view, and the zoom that keeps what's around it in view */
+  function pinFor(from: Layout, to: Layout): Pin {
+    const v = view();
+    const aim = toWorld(v, {
+      x: inset.left + (size.width - inset.left) / 2,
+      y: (size.height - inset.bottom) / 2
+    });
+    const station = from.at.reduce(
+      (best, p, i) => (distance(p, aim) < distance(from.at[best], aim) ? i : best),
+      0
+    );
+    const inView = from.at.flatMap((p, i) => {
+      const { x, y } = toScreen(v, p);
+      return x > inset.left && x < size.width && y > 0 && y < size.height - inset.bottom ? [i] : [];
+    });
+    const k = inView.length > 1 ? (v.k * spread(from, inView)) / spread(to, inView) : v.k;
+    return { station, at: toScreen(v, from.at[station]), zoom: [v.k, clamp(k, FURTHEST, CLOSEST)] };
+  }
+
+  $effect(() => {
+    const to = layouts[style];
+    if (to === morph.to) return;
+    // nothing's on screen yet, so there's nothing to fold
+    if (!painted) {
+      morph = { from: to, to, since: -Infinity, pin: null };
+      return;
+    }
+    const from = layoutAt(performance.now());
+    morph = { from, to, since: performance.now(), pin: pinFor(from, to) };
+  });
+
   onMount(() => {
     const baseCtx = base.getContext('2d')!;
     const topCtx = top.getContext('2d')!;
     behaviour = zoom<HTMLCanvasElement, unknown>()
-      .scaleExtent([0.004, 1.6])
+      .scaleExtent([FURTHEST, CLOSEST])
       .translateExtent([
         [LONDON.x0, LONDON.y0],
         [LONDON.x1, LONDON.y1]
@@ -195,18 +262,27 @@
     document.fonts?.load('12px "Hammersmith One"').then(() => (dirty = true));
 
     let last = performance.now();
-    let painted = 0;
     let frame = requestAnimationFrame(function tick(now) {
       frame = requestAnimationFrame(tick);
       const v = view();
       const lens = lensAt(now);
+      const layout = layoutAt(now);
+      const morphing = morph.pin !== null;
       // far out, trains crawl a pixel a second, so there's no need for 60 frames of it
-      const busy = dirty || lens.fade < 1 || focus.train !== null;
+      const busy = dirty || morphing || lens.fade < 1 || focus.train !== null;
       const every = busy ? 0 : 1000 / clamp(v.k * 160, 12, 60);
       if (now - painted < every || !palette) return;
       const dt = Math.min(0.25, (now - last) / 1000);
       last = painted = now;
-      live.fleet.step(Date.now(), dt);
+      if (morph.pin) {
+        const { station, at, zoom } = morph.pin;
+        const k = zoom[0] * (zoom[1] / zoom[0]) ** morphAt(now);
+        const p = layout.at[station];
+        const pinned = zoomIdentity.translate(at.x - p.x * k, at.y - p.y * k).scale(k);
+        select(top).call(behaviour.transform, pinned);
+        if (layout === morph.to) morph.pin = null;
+      }
+      live.fleet.step(Date.now(), dt, layout);
       const followed = follow && focus.train ? live.fleet.trains.get(focus.train) : undefined;
       if (followed) {
         const [w, h] = [size.width - inset.left, size.height - inset.bottom];
@@ -217,21 +293,25 @@
         // the whole network repaints on every nudge, so ignore the sub-pixel ones
         if (Math.hypot(dx, dy) > 0.75) select(top).call(behaviour.translateBy, dx / v.k, dy / v.k);
       }
-      if (dirty || lens.fade < 1) {
-        ({ hits: stationHits, labels } = paintNetwork(baseCtx, view(), palette, lens, inset));
+      if (dirty || morphing || lens.fade < 1) {
+        const network = paintNetwork(baseCtx, view(), layout, palette, lens, inset);
+        [stationHits, labels] = [network.hits, network.labels];
         dirty = false;
       }
       trainHits = paintTrains(
         topCtx,
         view(),
+        layout,
         palette,
         lens,
         live.fleet.trains.values(),
         calm.current ? 0 : now / 260,
         you
       );
-      if (lens.fade < 1) paintLabels(topCtx, palette, outgoing, 1 - lens.fade);
-      paintLabels(topCtx, palette, labels, lens.fade);
+      // names would only smear about while the map moves, so they step out and back
+      const named = (1 - 2 * morphAt(now)) ** 2;
+      if (lens.fade < 1) paintLabels(topCtx, palette, outgoing, (1 - lens.fade) * named);
+      paintLabels(topCtx, palette, labels, lens.fade * named);
     });
 
     return () => {
@@ -265,8 +345,7 @@
     aria-hidden="true"
     onclick={(event) => onpick(pickAt(pointer(event)))}
     ondblclick={(event) => {
-      const at = toWorld(view(), pointer(event));
-      flyTo([at], Math.min(1.6, transform.k * 2.2));
+      fit([toWorld(view(), pointer(event))], Math.min(CLOSEST, transform.k * 2.2));
     }}
     onpointermove={(event) => {
       if (event.buttons) return;
