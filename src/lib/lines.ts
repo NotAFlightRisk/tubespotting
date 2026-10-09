@@ -28,8 +28,8 @@ export type LineId = (typeof LINE_IDS)[number];
 export const MODES = [
   { id: 'tube', name: 'Tube', roundel: '#dc241f' },
   { id: 'elizabeth-line', name: 'Elizabeth line', roundel: '#6950a1' },
-  { id: 'overground', name: 'Overground', roundel: '#ee7c0e' },
   { id: 'dlr', name: 'DLR', roundel: '#00afad' },
+  { id: 'overground', name: 'Overground', roundel: '#ee7c0e' },
   { id: 'tram', name: 'Trams', roundel: '#5fb526' }
 ] as const;
 
