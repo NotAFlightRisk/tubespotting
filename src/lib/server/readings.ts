@@ -1,5 +1,5 @@
 import { isLineId, type LineId } from '#lib/lines.js';
-import { callsApart, stationById, stations, travelTime } from '#lib/network.js';
+import { callsApart, lineGraph, stationById, stations, travelTime } from '#lib/network.js';
 import type { LineStatus, Stop, TrainReading } from '#lib/types.js';
 
 export interface Prediction {
@@ -33,8 +33,8 @@ const FIRST_CALL = 15 * 60;
 
 export const cleanName = (name: string) =>
   name
-    .replace(/(\s+(?:Underground|Rail) Station|-Underground)$/i, '')
-    .replace(/\s*\(London\)|\s+ELL$/i, '')
+    .replace(/(\s+(?:Underground|Rail|DLR) Station|\s+Tram Stop|-Underground)$/i, '')
+    .replace(/\s*\((?:London|for [^)]*)\)|\s+ELL$/i, '')
     .replace(/\s*\((?:[^)]*(?:line|bakerloo|central|dist|h&c|circle))[^)]*\)/i, '')
     .trim();
 
@@ -194,6 +194,7 @@ function dedupe(trains: TrainReading[]): TrainReading[] {
     const twin = kept.some(
       (other) =>
         other.line === train.line &&
+        other.dest === train.dest &&
         other.stops.some(([station, at]) => station === first && Math.abs(at - eta) <= SAME_TRAIN)
     );
     if (!twin) kept.push(train);
@@ -241,7 +242,7 @@ export function readTrains(
       trains.push(toReading(line, id && (i ? `${id}#${i}` : id), train, platforms));
     });
   }
-  return dedupe(withoutReturnTrips(trains));
+  return withoutTurnbacks(dedupe(withoutReturnTrips(trains)));
 }
 
 // TfL's id, or failing that where it says the train is, which is the same for all its calls
@@ -270,6 +271,35 @@ function withoutReturnTrips(trains: TrainReading[]): TrainReading[] {
     }
   }
   return trains.filter((train) => !returning.has(train));
+}
+
+const leavesAnEnd = (train: TrainReading) => {
+  const start = train.stops[0][0];
+  return train.dest !== start && lineGraph.get(train.line)?.get(start)?.size === 1;
+};
+
+/** With no id or location, one leaving the end of the line is whichever train got there first */
+function withoutTurnbacks(trains: TrainReading[]): TrainReading[] {
+  const arriving = trains.toSorted((a, b) => a.stops.at(-1)![1] - b.stops.at(-1)![1]);
+  const leaving = trains
+    .filter((train) => train.id === null && !train.where && leavesAnEnd(train))
+    .sort((a, b) => a.stops[0][1] - b.stops[0][1]);
+  const turned = new Set<TrainReading>();
+  for (const train of leaving) {
+    const [start, leaves] = train.stops[0];
+    const index = arriving.findIndex((other) => {
+      const [last, arrives] = other.stops.at(-1)!;
+      return (
+        other.line === train.line &&
+        other.dest === start &&
+        arrives + travelTime(train.line, last, start) <= leaves
+      );
+    });
+    if (index < 0) continue;
+    arriving.splice(index, 1);
+    turned.add(train);
+  }
+  return trains.filter((train) => !turned.has(train));
 }
 
 interface RawStatus {

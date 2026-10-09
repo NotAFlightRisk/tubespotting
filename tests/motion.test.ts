@@ -63,6 +63,19 @@ describe('locate', () => {
     const [first] = schedule(train({ from: null, where: '' }), AT);
     expect(first.from).toBe(STOCKWELL);
   });
+
+  it('starts a train from the end of the line when it is heading back out', () => {
+    const BRIXTON = index('940GZZLUBXN');
+    const leaving = train({
+      from: null,
+      where: '',
+      stops: [
+        [BRIXTON, 60, 0],
+        [STOCKWELL, 180, 0]
+      ]
+    });
+    expect(locate('victoria', schedule(leaving, AT), BRIXTON, seconds(0)).at).toBe(BRIXTON);
+  });
 });
 
 describe('whereIs', () => {

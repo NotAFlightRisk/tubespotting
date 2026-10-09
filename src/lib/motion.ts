@@ -53,8 +53,9 @@ export function measureRuns(trains: TrainReading[]): Runs {
 /** The neighbour a train must be coming from, given where it's off to next */
 function approachTo(line: LineId, first: number, ahead: number | undefined): number | null {
   const around = [...(lineGraph.get(line)?.get(first) ?? [])];
-  if (around.length < 2 || ahead === undefined) return around.length === 1 ? around[0] : null;
-  const next = pathBetween(line, first, ahead)?.[1];
+  const next = ahead === undefined ? undefined : pathBetween(line, first, ahead)?.[1];
+  // at the end of the line, a train heading back out is starting from here
+  if (around.length < 2) return around[0] === next ? null : (around[0] ?? null);
   if (next === undefined) return null;
   const here = stations[first];
   const out = { x: stations[next].x - here.x, y: stations[next].y - here.y };

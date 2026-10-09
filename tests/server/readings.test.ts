@@ -151,6 +151,45 @@ describe('readTrains', () => {
     ]);
     expect(trains.map((train) => train.to)).toEqual(['Walthamstow Central']);
   });
+
+  describe('on a line that names neither trains nor places', () => {
+    const dlr = (naptan: string, eta: number, to: string) =>
+      call(naptan, eta, {
+        lineId: 'dlr',
+        vehicleId: '',
+        destinationName: `${to} DLR Station`,
+        currentLocation: ''
+      });
+    const arriving = [dlr('940GZZDLCYP', 60, 'Beckton'), dlr('940GZZDLGAL', 180, 'Beckton')];
+
+    it('drops a train leaving the end of the line that one arriving has time to become', () => {
+      const trains = read([...arriving, dlr('940GZZDLBEC', 540, 'Tower Gateway')]);
+      expect(trains.map((train) => train.to)).toEqual(['Beckton']);
+    });
+
+    it('keeps two trains apart when they pass at a station', () => {
+      const trains = read([
+        dlr('940GZZDLDEP', 60, 'Lewisham'),
+        dlr('940GZZDLDEP', 61, 'Bank'),
+        dlr('940GZZDLGRE', 121, 'Bank')
+      ]);
+      expect(trains.map((train) => train.to).sort()).toEqual(['Bank', 'Lewisham']);
+    });
+
+    it('lets one arriving train account for only one leaving', () => {
+      const trains = read([
+        ...arriving,
+        dlr('940GZZDLBEC', 400, 'Tower Gateway'),
+        dlr('940GZZDLBEC', 600, 'Tower Gateway')
+      ]);
+      expect(trains.filter((train) => train.to === 'Tower Gateway')).toHaveLength(1);
+    });
+
+    it('keeps one leaving the end of the line before anything else can get there', () => {
+      const trains = read([...arriving, dlr('940GZZDLBEC', 200, 'Tower Gateway')]);
+      expect(trains.map((train) => train.to).sort()).toEqual(['Beckton', 'Tower Gateway']);
+    });
+  });
 });
 
 describe('lastStation', () => {
@@ -183,7 +222,7 @@ describe('readStatus', () => {
           }
         ]
       },
-      { id: 'dlr', lineStatuses: [] }
+      { id: 'london-cable-car', lineStatuses: [] }
     ]);
     expect(rest).toEqual([]);
     expect(status).toEqual({
