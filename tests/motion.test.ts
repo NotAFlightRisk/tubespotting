@@ -57,6 +57,17 @@ describe('locate', () => {
     expect(distance(stood, stations[VAUXHALL])).toBeLessThan(1);
   });
 
+  it('faces the way it is going, on the move and stood at a station', () => {
+    const legs = schedule(train(), AT);
+    const facing = (t: number, towards: number) => {
+      const { x, y, angle } = locate('victoria', legs, VAUXHALL, seconds(t));
+      const ahead = stations[towards];
+      return Math.cos(angle) * (ahead.x - x) + Math.sin(angle) * (ahead.y - y);
+    };
+    expect(facing(30, VAUXHALL)).toBeGreaterThan(0);
+    expect(facing(65, PIMLICO)).toBeGreaterThan(0);
+  });
+
   it('stays at the last stop once the estimates run out', () => {
     const legs = schedule(train(), AT);
     expect(locate('victoria', legs, VAUXHALL, seconds(600)).at).toBe(PIMLICO);

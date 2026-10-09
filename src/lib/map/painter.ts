@@ -14,7 +14,7 @@ import {
   type Station,
   type Track
 } from '#lib/network.js';
-import { labelSize, lineWidth, toScreen, visible, type View } from './view.js';
+import { detailed, labelSize, lineWidth, toScreen, visible, zoomedOut, type View } from './view.js';
 
 export interface Palette {
   paper: string;
@@ -24,6 +24,10 @@ export interface Palette {
   ringFill: string;
   halo: string;
   lines: Record<LineId, string>;
+  /** Each line's colour shifted a little, for marks drawn on top of it */
+  tints: Record<LineId, string>;
+  /** Each line's colour taken well away from it, to outline its trains */
+  edges: Record<LineId, string>;
 }
 
 export interface Focus {
@@ -57,6 +61,8 @@ const FADED = 0.16;
 const RIVER_METRES = 230;
 // line widths back from a station that a bend starts, like the printed map's corners
 const BEND = 1.5;
+// a ring grows with its lines up to this many, so the biggest hubs don't swamp the map
+const RING_LINES = 4;
 const FONT = '"Hammersmith One", system-ui, sans-serif';
 
 const mix = (focus: Focus, alpha: (line: LineId | null) => number) =>
@@ -265,7 +271,9 @@ function drawStations(
 ) {
   const width = lineWidth(view.k);
   const ring = Math.max(1.2, width * 0.42);
-  const showTicks = view.k > 0.018;
+  // rings swell less with their lines zoomed out, where they'd crowd each other
+  const swell = 0.4 - 0.15 * zoomedOut(view.k);
+  const showTicks = detailed(view.k);
   const { lines, hubs, interchanges, tickTrack } = marksFor(focus.shown);
 
   for (const members of hubs) {
@@ -288,7 +296,8 @@ function drawStations(
     if (!lines[station.index].length || !visible(view, p)) continue;
     ctx.globalAlpha = stationAlpha(focus, station);
     if (interchanges.has(station.index)) {
-      const radius = Math.max(width * 0.95, (lines[station.index].length * width) / 2 + ring);
+      const served = Math.min(lines[station.index].length, RING_LINES);
+      const radius = Math.max(width * 0.95, served * width * swell + ring);
       ctx.fillStyle = palette.ringFill;
       ctx.strokeStyle = palette.ring;
       ctx.lineWidth = ring;
@@ -480,9 +489,10 @@ export function paintTrains(
 ): Map<string, Hit> {
   const hits = new Map<string, Hit>();
   const width = lineWidth(view.k);
-  // well wider than the line, so a train reads as a carriage on it rather than a gap in it
-  const length = Math.max(10, width * 3.2);
-  const girth = Math.max(6.5, width * 2.2);
+  // a carriage wider than its line, squared off so it can't be taken for a station's ring
+  const length = width * 3.6;
+  const girth = width * 1.8;
+  const showHeading = detailed(view.k);
   ctx.clearRect(0, 0, view.width, view.height);
   ctx.lineJoin = 'round';
 
@@ -499,17 +509,21 @@ export function paintTrains(
     ctx.rotate(shown.angle);
     if (selected) ring(ctx, palette, { x: 0, y: 0 }, length * 0.8 + 3 + Math.sin(pulse) * 1.5);
     ctx.fillStyle = palette.lines[reading.line];
-    ctx.strokeStyle = palette.ring;
-    ctx.lineWidth = 1.25;
+    ctx.strokeStyle = palette.edges[reading.line];
+    ctx.lineWidth = Math.min(1.25, girth * 0.2);
     ctx.beginPath();
-    ctx.roundRect(-length / 2, -girth / 2, length, girth, girth / 2);
+    ctx.roundRect(-length / 2, -girth / 2, length, girth, 1.5);
     ctx.fill();
     ctx.stroke();
-    if (length > 13) {
-      ctx.fillStyle = palette.paper;
+    if (showHeading) {
+      // a chevron at the front, pointing the way it's heading
+      ctx.strokeStyle = palette.tints[reading.line];
+      ctx.lineWidth = girth * 0.2;
       ctx.beginPath();
-      ctx.arc(length / 2 - girth / 2, 0, girth * 0.2, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.moveTo(length / 2 - girth * 0.85, -girth * 0.275);
+      ctx.lineTo(length / 2 - girth * 0.45, 0);
+      ctx.lineTo(length / 2 - girth * 0.85, girth * 0.275);
+      ctx.stroke();
     }
     ctx.restore();
     hits.set(train.key, { ...p, radius: Math.max(14, length) });
