@@ -23,9 +23,7 @@
 
 ## About
 
-A live map of the Tube. Every train on all eleven Underground lines, gliding between stations as TfL reports them, drawn in the colours and style you already know from the map on the platform wall.
-
-TfL doesn't publish where tube trains physically are, only when each one's due at each station. So tubespotting works the positions out from those arrival times, and moves each train along its line in between. It's a good guess rather than GPS - a train can be a few hundred metres out - but its close enough to watch yours coming.
+A live map of the Tube. Every train on all eleven Underground lines, moving in real-time between stations as TfL reports them.
 
 ---
 
@@ -36,10 +34,10 @@ Just open [tubespotting.peng.ly](https://tubespotting.peng.ly/) and drag/ pinch 
 - Tap a line on the status board to pick it out and see every train on it
 - Tap a station for its next trains, platform by platform, on a countdown board
 - Tap a train to see where it's off to and follow it across London
-- Search (or just press `/`) finds any station or line, and the locate button opens your nearest station. Your location never leaves your device
-- The Elizabeth line and Overground can go on too, from the end of the line list
-
-A line or station ends up in the URL, so `?line=victoria` or `?station=940GZZLUOXC` is a link you can share.
+- Search (or just press `/`) finds any station or line
+- The locate button opens your nearest station. Your location never leaves your device
+- Additional lines like the Elizabeth line and Overground can be added to the map from the line list
+- You can append a station or line to the URL to share a link, e.g. `?line=victoria` or `?station=940GZZLUOXC`
 
 ---
 
@@ -63,8 +61,6 @@ There's a multi-arch image on DockerHub ([`notaflightrisk/tubespotting`](https:/
 docker run -p 3000:3000 notaflightrisk/tubespotting
 ```
 
-[![Deploy from Docker](https://img.shields.io/badge/Deploy-Docker-2496ED?style=for-the-badge&logo=docker&labelColor=1b2744)](https://hub.docker.com/r/notaflightrisk/tubespotting)
-
 ### Option 3: From a release
 
 Each [release](https://github.com/NotAFlightRisk/tubespotting/releases) has a `site.zip` with the built Node server in it. Unzip it and run `node build` (Node 22 or newer).
@@ -77,7 +73,10 @@ Follow the [Development](#development) steps, then `npm run build` and `npm star
 
 ## Configuration
 
-It works with no config at all. These are all optional environment variables:
+No config is needed, but adding a TFL_API_KEY is reccomended to raise the rate-limits.
+
+<details>
+<summary>Optional environmental variables</summary>
 
 | Variable                  | What it does                                                                                                           |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
@@ -85,6 +84,8 @@ It works with no config at all. These are all optional environment variables:
 | `PORT`                    | Port for the Node server and Docker image, `3000` by default                                                           |
 | `PUBLIC_PLAUSIBLE_SCRIPT` | Build time. A Plausible script URL to count visits, off when empty                                                     |
 | `PUBLIC_SENTRY_DSN`       | Build time. A Sentry or Bugsink DSN for error reports, off when empty                                                  |
+
+</details>
 
 ---
 
