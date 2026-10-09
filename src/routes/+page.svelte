@@ -30,6 +30,7 @@
   const wide = new MediaQuery('min-width: 960px');
   const STALE_SECONDS = 90;
   const NEARBY_KM = 3;
+  const TUBE = linesIn(['tube']);
   const SAVED = 'tubespotting:shown';
   const SAVED_STYLE = 'tubespotting:style';
 
@@ -68,6 +69,13 @@
     return [...live.fleet.trains.values()].filter(
       (train) => !train.gone && shown.has(train.reading.line)
     );
+  });
+  // the About sheet counts the Underground alone, whatever else is switched on
+  const underground = $derived.by(() => {
+    void live.snapshot;
+    return [...live.fleet.trains.values()].filter(
+      (train) => !train.gone && TUBE.has(train.reading.line)
+    ).length;
   });
   const counts = $derived.by(() => {
     const counts = new Map<LineId, number>();
@@ -287,6 +295,7 @@
         </button>
         <button
           type="button"
+          class="about"
           aria-label="About this map"
           aria-expanded={about}
           onclick={() => (about ? close() : (selection = { kind: 'about' }))}
@@ -310,11 +319,13 @@
     </header>
 
     {#if selection}
-      <section class="sheet" aria-label="Details">
-        <button type="button" class="dismiss" aria-label="Back to all lines" onclick={close}>
-          <Icon name={wide.current ? 'back' : 'close'} />
-          <span>All lines</span>
-        </button>
+      <section class="sheet" class:full={about} aria-label="Details">
+        {#if selection.kind !== 'about'}
+          <button type="button" class="dismiss" aria-label="Back to all lines" onclick={close}>
+            <Icon name={wide.current ? 'back' : 'close'} />
+            <span>All lines</span>
+          </button>
+        {/if}
         {#if selection.kind === 'line'}
           {@const id = selection.id}
           <LineDetail
@@ -344,7 +355,7 @@
             onpickstation={pickStation}
           />
         {:else}
-          <About />
+          <About trains={live.snapshot ? underground : null} onclose={close} />
         {/if}
       </section>
     {:else}
@@ -357,7 +368,14 @@
         onpick={pickLine}
         ontoggle={toggle}
       />
-      <a class="source" href={source} aria-label="Source on GitHub"><Icon name="github" /></a>
+      <footer class="links">
+        <button type="button" class="link primary" onclick={() => (selection = { kind: 'about' })}>
+          <Icon name="info" size={16} />About
+        </button>
+        <a class="link" href={source} target="_blank" rel="noopener"
+          ><Icon name="github" size={16} />GitHub</a
+        >
+      </footer>
     {/if}
   </aside>
 
@@ -372,10 +390,10 @@
     >
       <Icon name={style === 'schematic' ? 'map' : 'tube'} />
     </button>
-    <button type="button" aria-label="Zoom in" onclick={() => map.zoomBy(1.6)}
+    <button type="button" class="zoom" aria-label="Zoom in" onclick={() => map.zoomBy(1.6)}
       ><Icon name="plus" /></button
     >
-    <button type="button" aria-label="Zoom out" onclick={() => map.zoomBy(1 / 1.6)}
+    <button type="button" class="zoom" aria-label="Zoom out" onclick={() => map.zoomBy(1 / 1.6)}
       ><Icon name="minus" /></button
     >
     <button type="button" aria-label="Show where I am" onclick={locate}
@@ -460,8 +478,7 @@
   }
 
   .actions button,
-  .controls button,
-  .source {
+  .controls button {
     display: grid;
     place-items: center;
     width: var(--tap);
@@ -536,7 +553,7 @@
     transition: bottom 320ms var(--ease-out);
   }
 
-  .source {
+  .links {
     display: none;
   }
 
@@ -552,6 +569,22 @@
   @media (max-width: 959px) {
     .app.open .controls {
       display: none;
+    }
+
+    /* phones pinch to zoom */
+    .controls .zoom {
+      display: none;
+    }
+
+    /* About is all reading and no map, so it takes the whole screen */
+    .sheet.full {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      max-height: none;
+      padding-top: calc(var(--space-4) + env(safe-area-inset-top));
+      padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom));
+      border-radius: 0;
     }
   }
 
@@ -592,14 +625,50 @@
       background: var(--surface-sunk);
     }
 
-    .source {
-      display: grid;
-      margin: auto var(--space-4) var(--space-4);
-      box-shadow: none;
-      color: var(--text-muted);
+    /* the footer has it on desktop */
+    .actions .about {
+      display: none;
+    }
+
+    .links {
+      position: sticky;
+      bottom: 0;
+      display: flex;
+      gap: var(--space-2);
+      margin-top: auto;
+      padding: var(--space-3) var(--space-4);
+      border-top: 1px solid var(--rule);
+      background: var(--surface);
+    }
+
+    .link {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      min-height: 36px;
+      padding: 0 var(--space-3);
+      border: 0;
+      border-radius: var(--radius-small);
+      background: none;
+      box-shadow: inset 0 0 0 1.5px var(--accent);
+      color: var(--accent);
+      font: 14px/1.1 var(--font-display);
+      text-decoration: none;
 
       &:hover {
-        color: var(--text);
+        background: var(--surface-sunk);
+      }
+
+      &.primary {
+        background: var(--accent);
+        box-shadow: none;
+        color: var(--accent-ink);
+
+        &:hover {
+          filter: brightness(1.15);
+        }
       }
     }
 
