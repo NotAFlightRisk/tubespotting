@@ -9,13 +9,14 @@
     line: Line;
     status: LineStatus | undefined;
     trains: Tracked[];
+    waiting: boolean;
     now: number;
     onpicktrain: (key: string) => void;
   }
 
-  let { line, status, trains, now, onpicktrain }: Props = $props();
+  let { line, status, trains, waiting, now, onpicktrain }: Props = $props();
 
-  const feeling = $derived(status ? tone(status.severity) : 'good');
+  const feeling = $derived(status ? tone(status.severity) : '');
 
   // one strip per destination, furthest from it first, so it reads in the direction of travel
   const directions = $derived.by(() => {
@@ -43,7 +44,7 @@
   <p class="status {feeling}">{status?.status ?? 'Checking the status'}</p>
   {#if status?.reason}<p class="reason">{status.reason}</p>{/if}
 
-  <p class="total">{count(trains.length, 'train')} running</p>
+  <p class="total">{waiting ? 'Waiting for TfL…' : `${count(trains.length, 'train')} running`}</p>
   {#each directions as direction (direction.to)}
     <section aria-label="Trains to {direction.to}">
       <h3>To {direction.to} <span>· {count(direction.trains.length, 'train')}</span></h3>

@@ -12,6 +12,7 @@
     paintTrains,
     type Focus,
     type Hit,
+    type Inset,
     type Label,
     type Palette
   } from './painter.js';
@@ -24,7 +25,7 @@
     live: Live;
     focus: Pick<Focus, 'shown' | 'line' | 'station' | 'train'>;
     follow: boolean;
-    inset: { left: number; bottom: number };
+    inset: Inset;
     dark: boolean;
     label: string;
     you: Point | null;
@@ -151,7 +152,7 @@
       fading = { from: fading.to, to: focus.line, since: performance.now() };
       outgoing = labels;
     }
-    void [focus.shown, focus.station, focus.train];
+    void [focus.shown, focus.station, focus.train, inset];
     dirty = true;
   });
 
@@ -217,7 +218,7 @@
         if (Math.hypot(dx, dy) > 0.75) select(top).call(behaviour.translateBy, dx / v.k, dy / v.k);
       }
       if (dirty || lens.fade < 1) {
-        ({ hits: stationHits, labels } = paintNetwork(baseCtx, view(), palette, lens));
+        ({ hits: stationHits, labels } = paintNetwork(baseCtx, view(), palette, lens, inset));
         dirty = false;
       }
       trainHits = paintTrains(

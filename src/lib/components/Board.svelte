@@ -7,13 +7,14 @@
   interface Props {
     status: LineStatus[];
     counts: Map<LineId, number>;
+    waiting: boolean;
     shown: Set<LineId>;
     extras: ModeId[];
     onpick: (line: LineId) => void;
     ontoggle: (mode: ModeId) => void;
   }
 
-  let { status, counts, shown, extras, onpick, ontoggle }: Props = $props();
+  let { status, counts, waiting, shown, extras, onpick, ontoggle }: Props = $props();
 
   const OPTIONAL = MODES.filter((mode) => mode.id !== 'tube');
 
@@ -25,7 +26,7 @@
   <ul>
     {#each LINES.filter((line) => shown.has(line.id)) as line (line.id)}
       {@const state = byLine.get(line.id)}
-      {@const feeling = state ? tone(state.severity) : 'good'}
+      {@const feeling = state ? tone(state.severity) : ''}
       <li>
         <button
           type="button"
@@ -39,7 +40,7 @@
             <span class="dot" aria-hidden="true"></span>
             {state?.status ?? 'Checking'}
           </span>
-          <span class="count">{count(counts.get(line.id) ?? 0, 'train')}</span>
+          <span class="count">{waiting ? '' : count(counts.get(line.id) ?? 0, 'train')}</span>
         </button>
       </li>
     {/each}
@@ -136,6 +137,10 @@
       width: 8px;
       height: 8px;
       border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    &.good .dot {
       background: var(--good);
     }
 
@@ -149,10 +154,6 @@
       .dot {
         background: var(--bad);
       }
-    }
-
-    &.closed .dot {
-      background: var(--text-muted);
     }
   }
 

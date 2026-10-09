@@ -55,7 +55,10 @@
   const inset = $derived(
     wide.current
       ? { left: 380, bottom: 0 }
-      : { left: 0, bottom: selection ? Math.round(innerHeight * 0.55) : panelHeight }
+      : {
+          left: 0,
+          bottom: selection ? Math.max(panelHeight, Math.round(innerHeight * 0.58)) : panelHeight
+        }
   );
   const running = $derived.by(() => {
     void live.snapshot;
@@ -302,6 +305,7 @@
             line={lineById(id)!}
             status={live.snapshot?.status.find((s) => s.id === id)}
             trains={running.filter((train) => train.reading.line === id)}
+            waiting={!live.snapshot}
             {now}
             onpicktrain={pickTrain}
           />
@@ -331,6 +335,7 @@
       <Board
         status={live.snapshot?.status ?? []}
         {counts}
+        waiting={!live.snapshot}
         {shown}
         {extras}
         onpick={pickLine}
