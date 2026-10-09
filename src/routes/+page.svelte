@@ -16,6 +16,7 @@
   import TubeMap, { type Tap } from '#lib/map/TubeMap.svelte';
   import { description, site, source, title } from '#lib/meta.js';
   import { distance, project, stationById, stations, type Point } from '#lib/network.js';
+  import { swipeToClose } from '#lib/swipe.js';
   import { Theme } from '#lib/theme.svelte.js';
 
   type Selection =
@@ -320,6 +321,7 @@
 
     {#if selection}
       <section class="sheet" class:full={about} aria-label="Details">
+        <div class="grip" aria-hidden="true" {@attach swipeToClose(close)}></div>
         {#if selection.kind !== 'about'}
           <button type="button" class="dismiss" aria-label="Back to all lines" onclick={close}>
             <Icon name={wide.current ? 'back' : 'close'} />
@@ -510,7 +512,7 @@
     max-height: 58dvh;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: var(--space-3) var(--space-4) var(--space-5);
+    padding: 0 var(--space-4) var(--space-5);
     border-radius: var(--radius) var(--radius) 0 0;
     background: var(--surface);
     box-shadow: var(--shadow);
@@ -521,6 +523,29 @@
     from {
       translate: 0 24px;
       opacity: 0;
+    }
+  }
+
+  /* stays put while the sheet scrolls, so it can always be pulled down */
+  .grip {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    box-sizing: content-box;
+    height: var(--space-5);
+    margin-inline: calc(-1 * var(--space-4));
+    background: var(--surface);
+    touch-action: none;
+    cursor: grab;
+
+    &::before {
+      content: '';
+      width: 36px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--rule);
     }
   }
 
@@ -582,9 +607,12 @@
       inset: 0;
       z-index: 2;
       max-height: none;
-      padding-top: calc(var(--space-4) + env(safe-area-inset-top));
       padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom));
       border-radius: 0;
+
+      .grip {
+        padding-top: env(safe-area-inset-top);
+      }
     }
   }
 
@@ -670,6 +698,10 @@
           filter: brightness(1.15);
         }
       }
+    }
+
+    .grip {
+      display: none;
     }
 
     .sheet {
