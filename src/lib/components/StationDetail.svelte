@@ -1,7 +1,7 @@
 <script lang="ts">
   import { lineById, type LineId } from '#lib/lines.js';
   import { stations, type Station } from '#lib/network.js';
-  import { minutes } from '#lib/status.js';
+  import { finishesAt, minutes } from '#lib/status.js';
   import type { Snapshot, TrainReading } from '#lib/types.js';
 
   interface Props {
@@ -43,7 +43,7 @@
   const platforms = $derived.by(() => {
     if (!snapshot) return [];
     const rows = snapshot.trains
-      .filter((train) => shown.has(train.line))
+      .filter((train) => shown.has(train.line) && !finishesAt(train, here))
       .flatMap((train) =>
         train.stops
           .filter(([stop]) => here.has(stop))
@@ -67,6 +67,16 @@
       }))
       .sort((a, b) => a.line.name.localeCompare(b.line.name) || a.name.localeCompare(b.name));
   });
+
+  // seconds until the next train in to finish here
+  const arriving = $derived.by(() => {
+    if (!snapshot) return null;
+    const dues = snapshot.trains
+      .filter((train) => shown.has(train.line) && finishesAt(train, here))
+      .map((train) => (snapshot.at + train.stops.at(-1)![1] * 1000 - now) / 1000)
+      .filter((due) => due > -30);
+    return dues.length ? Math.min(...dues) : null;
+  });
 </script>
 
 <header>
@@ -81,6 +91,11 @@
 
 {#if !snapshot}
   <p class="quiet">Waiting for TfL…</p>
+{:else if !platforms.length && arriving !== null}
+  <p class="quiet">
+    No departures listed, only trains finishing here. The next one arrives
+    {arriving < 30 ? 'now' : `in ${minutes(arriving)}`}.
+  </p>
 {:else if !platforms.length}
   <p class="quiet">No trains due here at the moment.</p>
 {:else}

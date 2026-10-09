@@ -45,6 +45,12 @@ export interface Label extends Point {
   size: number;
 }
 
+/** How much of the map's left and bottom the panels cover */
+export interface Inset {
+  left: number;
+  bottom: number;
+}
+
 const FADED = 0.16;
 const RIVER_METRES = 230;
 // line widths back from a station that a bend starts, like the printed map's corners
@@ -315,9 +321,16 @@ function placeLabels(
   ctx: CanvasRenderingContext2D,
   view: View,
   focus: Focus,
-  hits: Map<number, Hit>
+  hits: Map<number, Hit>,
+  inset: Inset
 ): Label[] {
   const labels: Label[] = [];
+  // a name the panel or the edge would cut in half is no use to anyone
+  const fits = (box: Box) =>
+    box.x >= inset.left &&
+    box.y >= 0 &&
+    box.x + box.w <= view.width &&
+    box.y + box.h <= view.height - inset.bottom;
   const size = labelSize(view.k) - (focus.line ? 1 : 0);
   const width = lineWidth(view.k);
   const layout = layoutFor(focus.shown);
@@ -368,7 +381,7 @@ function placeLabels(
       { x: anchor.x - lean - w, y: anchor.y - lean - size, w, h: size, align: 'right' },
       { x: anchor.x - lean - w, y: anchor.y + lean, w, h: size, align: 'right' }
     ];
-    const spot = options.find((box) => !placed.some((other) => overlaps(box, other)));
+    const spot = options.find((box) => fits(box) && !placed.some((other) => overlaps(box, other)));
     if (!spot) continue;
     placed.push({ x: spot.x - 3, y: spot.y - 2, w: spot.w + 6, h: spot.h + 4 });
     const x = spot.align === 'left' ? spot.x : spot.align === 'right' ? spot.x + w : spot.x + w / 2;
@@ -404,7 +417,8 @@ export function paintNetwork(
   ctx: CanvasRenderingContext2D,
   view: View,
   palette: Palette,
-  focus: Focus
+  focus: Focus,
+  inset: Inset
 ): { hits: Map<number, Hit>; labels: Label[] } {
   const hits = new Map<number, Hit>();
   ctx.fillStyle = palette.paper;
@@ -414,7 +428,7 @@ export function paintNetwork(
   drawRiver(ctx, view, palette);
   drawTracks(ctx, view, palette, focus);
   drawStations(ctx, view, palette, focus, hits);
-  return { hits, labels: placeLabels(ctx, view, focus, hits) };
+  return { hits, labels: placeLabels(ctx, view, focus, hits, inset) };
 }
 
 function ring(ctx: CanvasRenderingContext2D, palette: Palette, at: Point, radius: number) {

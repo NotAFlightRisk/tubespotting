@@ -1,6 +1,7 @@
 import { stations } from './network.js';
 import type { Tracked } from './fleet.js';
 import { locate } from './motion.js';
+import type { TrainReading } from './types.js';
 
 export type Tone = 'good' | 'warn' | 'bad' | 'closed';
 
@@ -22,6 +23,10 @@ export function whereIs({ legs, reading }: Tracked, now: number): string {
   if (placed.at !== null || from === to) return `At ${name(placed.at ?? from)}`;
   return placed.f > 0.8 ? `Approaching ${name(to)}` : `Between ${name(from)} and ${name(to)}`;
 }
+
+/** Coming in to finish at one of these stations, so not a train you can catch there */
+export const finishesAt = ({ dest, stops }: TrainReading, here: Set<number>) =>
+  dest !== null && dest === stops.at(-1)![0] && here.has(dest);
 
 /** The call a train's heading for, and how many seconds off it is */
 export function nextCall({ legs, reading }: Tracked, now: number) {
