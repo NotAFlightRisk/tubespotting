@@ -37,7 +37,7 @@ Just open [tubespotting.peng.ly](https://tubespotting.peng.ly/) and drag/ pinch 
 - Search (or just press `/`) finds any station or line
 - The locate button opens your nearest station. Your location never leaves your device
 - Additional lines like the Elizabeth line and Overground can be added to the map from the line list
-- The map button switches between the real geography and a tube map, with lines at 45° and the middle given room
+- The map button switches between the real geography and a tube map laid out like TfL's own
 - You can append a station or line to the URL to share a link, e.g. `?line=victoria` or `?station=940GZZLUOXC`
 
 ---
@@ -104,7 +104,7 @@ npm run dev
 The dev server is then on [localhost:5173](http://localhost:5173).<br>
 The other scripts you'll want are `npm run check` (types), `npm test` (tests) and `npm run format`.
 
-The stations, routes and run times live in `src/lib/data/network.json`, along with each track's real shape from OpenStreetMap and the tube map layout, which `scripts/schematic.mjs` works out from the real network. When TfL changes the network, rebuild it with `npm run network` (put your `TFL_APP_KEY` in the environment first, it makes about 100 calls).
+The stations, routes and run times live in `src/lib/data/network.json`, along with each track's real shape from OpenStreetMap and the tube map layout. That follows TfL's own map, with its stations placed by hand in `scripts/tube-map.mjs` and the track between them routed by `scripts/schematic.mjs`. When TfL changes the network, rebuild it with `npm run network` (put your `TFL_APP_KEY` in the environment first, it makes about 100 calls). After editing just the tube map, `npm run network -- --tube-map` lays it out again without calling TfL.
 
 Alternatively, build the container with `docker build -t tubespotting .`
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Rebuilds src/lib/data/network.json from TfL, plus track shapes and the Thames from OpenStreetMap
-import { writeFile } from 'node:fs/promises';
+// Rebuilds src/lib/data/network.json from TfL, plus track shapes and the Thames from OpenStreetMap.
+// With --tube-map it only lays the tube map out again, over the network already there
+import { readFile, writeFile } from 'node:fs/promises';
 import { distance, project, round } from './geo.mjs';
 import { thames, trackShapes, UA } from './osm.mjs';
 import { schematic } from './schematic.mjs';
@@ -200,7 +201,7 @@ async function main() {
   const tracks = drawnTracks(everyStation, indexed);
   const shapes = await trackShapes(everyStation, tracks);
   const river = await thames();
-  const tubeMap = schematic(everyStation, tracks, river);
+  const tubeMap = schematic(everyStation, tracks);
   const network = {
     generated: new Date().toISOString(),
     stations: everyStation.map((station, i) => ({ ...station, tube: tubeMap.at[i] })),
@@ -215,8 +216,18 @@ async function main() {
   );
 }
 
+/** The saved network with its tube map laid out afresh, for when only tube-map.mjs has changed */
+async function relayout() {
+  const network = JSON.parse(await readFile(OUT, 'utf8'));
+  const { at, bends, river } = schematic(network.stations, network.tracks);
+  network.stations.forEach((station, i) => (station.tube = at[i]));
+  network.tracks.forEach((track, i) => (track.tube = bends[i]));
+  network.thames.tube = river;
+  await writeFile(OUT, JSON.stringify(network));
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch((err) => {
+  (process.argv.includes('--tube-map') ? relayout() : main()).catch((err) => {
     console.error(err);
     process.exit(1);
   });
