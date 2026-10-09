@@ -1,7 +1,7 @@
 <script lang="ts">
   import { select } from 'd3-selection';
   import 'd3-transition';
-  import { zoom, zoomIdentity, type ZoomBehavior } from 'd3-zoom';
+  import { zoom, zoomIdentity, type ZoomBehavior, type ZoomTransform } from 'd3-zoom';
   import { onMount } from 'svelte';
   import { MediaQuery } from 'svelte/reactivity';
   import { between, layouts, type Layout, type Style } from '#lib/layout.js';
@@ -38,8 +38,6 @@
   let { live, focus, follow, inset, style, dark, label, you, onpick, onwander }: Props = $props();
 
   const calm = new MediaQuery('prefers-reduced-motion: reduce');
-  // out to Reading, so the Elizabeth line fits
-  const LONDON = { x0: -66_000, y0: -28_000, x1: 38_000, y1: 22_000 };
   const [FURTHEST, CLOSEST] = [0.004, 1.6];
   // roughly zones 1 and 2, or just zone 1 on a phone
   const START = (wide: boolean) => [
@@ -66,6 +64,19 @@
 
   const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
 
+  const bounds = (points: Point[]) => {
+    const [xs, ys] = [points.map((p) => p.x), points.map((p) => p.y)];
+    return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
+  };
+
+  const reach = $derived(bounds(layouts[style].at));
+
+  // the middle of the uncovered map can go anywhere over the network, at any zoom
+  function constrain(t: ZoomTransform) {
+    const [x, y] = t.invert([(inset.left + size.width) / 2, (size.height - inset.bottom) / 2]);
+    return t.translate(x - clamp(x, reach.x0, reach.x1), y - clamp(y, reach.y0, reach.y1));
+  }
+
   /** Zooms to fit some real places in the bit of the map the panels aren't covering */
   export function flyTo(places: Point[], maxK = 0.12, instant = false) {
     fit(places.map(layouts[style].place), maxK, instant);
@@ -73,19 +84,13 @@
 
   function fit(points: Point[], maxK: number, instant = false) {
     if (!points.length || !size.width) return;
-    const xs = points.map((p) => p.x);
-    const ys = points.map((p) => p.y);
+    const { x0, y0, x1, y1 } = bounds(points);
     const [w, h] = [size.width - inset.left, size.height - inset.bottom];
-    const span = { x: Math.max(...xs) - Math.min(...xs), y: Math.max(...ys) - Math.min(...ys) };
-    const k = clamp(Math.min((w * 0.8) / (span.x || 1), (h * 0.8) / (span.y || 1)), 0.005, maxK);
-    const centre = {
-      x: (Math.max(...xs) + Math.min(...xs)) / 2,
-      y: (Math.max(...ys) + Math.min(...ys)) / 2
-    };
+    const k = clamp(Math.min((w * 0.8) / (x1 - x0 || 1), (h * 0.8) / (y1 - y0 || 1)), 0.005, maxK);
     const target = zoomIdentity
       .translate(inset.left + w / 2, h / 2)
       .scale(k)
-      .translate(-centre.x, -centre.y);
+      .translate(-(x0 + x1) / 2, -(y0 + y1) / 2);
     select(top)
       .transition()
       .duration(instant || calm.current ? 0 : 1100)
@@ -116,7 +121,10 @@
     return station !== null ? { kind: 'station', index: station } : null;
   }
 
-  const pointer = (event: MouseEvent) => ({ x: event.offsetX, y: event.offsetY });
+  const pointer = ({ clientX, clientY }: MouseEvent | Touch) => {
+    const box = top.getBoundingClientRect();
+    return { x: clientX - box.left, y: clientY - box.top };
+  };
 
   function onkeydown(event: KeyboardEvent) {
     const pan: Record<string, [number, number]> = {
@@ -233,16 +241,20 @@
     const topCtx = top.getContext('2d')!;
     behaviour = zoom<HTMLCanvasElement, unknown>()
       .scaleExtent([FURTHEST, CLOSEST])
-      .translateExtent([
-        [LONDON.x0, LONDON.y0],
-        [LONDON.x1, LONDON.y1]
-      ])
+      .constrain(constrain)
+      .tapDistance(30)
       .on('zoom', (event) => {
         transform = event.transform;
         dirty = true;
         if (event.sourceEvent) onwander();
       });
-    select(top).call(behaviour).on('dblclick.zoom', null);
+    // d3 spots double taps as well, which phones don't send on as double clicks
+    select(top)
+      .call(behaviour)
+      .on('dblclick.zoom', (event: MouseEvent | TouchEvent) => {
+        const at = 'changedTouches' in event ? event.changedTouches[0] : event;
+        fit([toWorld(view(), pointer(at))], Math.min(CLOSEST, transform.k * 2.2));
+      });
 
     const observer = new ResizeObserver(resize);
     observer.observe(wrap);
@@ -344,9 +356,6 @@
     class="live"
     aria-hidden="true"
     onclick={(event) => onpick(pickAt(pointer(event)))}
-    ondblclick={(event) => {
-      fit([toWorld(view(), pointer(event))], Math.min(CLOSEST, transform.k * 2.2));
-    }}
     onpointermove={(event) => {
       if (event.buttons) return;
       top.style.cursor = pickAt(pointer(event)) ? 'pointer' : '';

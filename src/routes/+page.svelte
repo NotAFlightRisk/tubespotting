@@ -576,6 +576,11 @@
     justify-items: end;
     gap: var(--space-2);
     transition: bottom 320ms var(--ease-out);
+    pointer-events: none;
+
+    > * {
+      pointer-events: auto;
+    }
   }
 
   .links {
@@ -599,6 +604,15 @@
     /* phones pinch to zoom */
     .controls .zoom {
       display: none;
+    }
+
+    /* the panel floats over the map, so a drag that misses the sheet or a line still moves it */
+    .panel {
+      pointer-events: none;
+    }
+
+    .sheet {
+      pointer-events: auto;
     }
 
     /* About is all reading and no map, so it takes the whole screen */

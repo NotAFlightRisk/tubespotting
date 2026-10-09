@@ -217,6 +217,14 @@
   }
 
   @media (max-width: 959px) {
+    .board {
+      pointer-events: none;
+    }
+
+    button {
+      pointer-events: auto;
+    }
+
     .line .state {
       display: flex;
       padding: 2px var(--space-3) 4px;
