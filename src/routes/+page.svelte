@@ -35,8 +35,8 @@
   const SAVED = 'tubespotting:shown';
   const SAVED_STYLE = 'tubespotting:style';
 
-  let modes = $state<ModeId[]>(['tube']);
-  let style = $state<Style>('geographic');
+  let modes = $state<ModeId[]>(['tube', 'elizabeth-line', 'dlr']);
+  let style = $state<Style>('schematic');
   let selection = $state<Selection>(null);
   let follow = $state(false);
   let searching = $state(false);

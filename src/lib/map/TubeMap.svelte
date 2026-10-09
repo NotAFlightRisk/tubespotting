@@ -79,22 +79,28 @@
 
   /** Zooms to fit some real places in the bit of the map the panels aren't covering */
   export function flyTo(places: Point[], maxK = 0.12, instant = false) {
-    fit(places.map(layouts[style].place), maxK, instant);
+    if (places.length) fit(() => places.map(layouts[style].place), maxK, instant);
   }
 
-  function fit(points: Point[], maxK: number, instant = false) {
-    if (!points.length || !size.width) return;
-    const { x0, y0, x1, y1 } = bounds(points);
-    const [w, h] = [size.width - inset.left, size.height - inset.bottom];
-    const k = clamp(Math.min((w * 0.8) / (x1 - x0 || 1), (h * 0.8) / (y1 - y0 || 1)), 0.005, maxK);
-    const target = zoomIdentity
-      .translate(inset.left + w / 2, h / 2)
-      .scale(k)
-      .translate(-(x0 + x1) / 2, -(y0 + y1) / 2);
+  function fit(points: () => Point[], maxK: number, instant = false) {
+    if (!size.width) return;
+    // worked out as it sets off, by when the page has put back a saved map style
     select(top)
       .transition()
       .duration(instant || calm.current ? 0 : 1100)
-      .call(behaviour.transform, target);
+      .call(behaviour.transform, () => {
+        const { x0, y0, x1, y1 } = bounds(points());
+        const [w, h] = [size.width - inset.left, size.height - inset.bottom];
+        const k = clamp(
+          Math.min((w * 0.8) / (x1 - x0 || 1), (h * 0.8) / (y1 - y0 || 1)),
+          0.005,
+          maxK
+        );
+        return zoomIdentity
+          .translate(inset.left + w / 2, h / 2)
+          .scale(k)
+          .translate(-(x0 + x1) / 2, -(y0 + y1) / 2);
+      });
   }
 
   export function zoomBy(factor: number) {
@@ -253,7 +259,8 @@
       .call(behaviour)
       .on('dblclick.zoom', (event: MouseEvent | TouchEvent) => {
         const at = 'changedTouches' in event ? event.changedTouches[0] : event;
-        fit([toWorld(view(), pointer(at))], Math.min(CLOSEST, transform.k * 2.2));
+        const spot = toWorld(view(), pointer(at));
+        fit(() => [spot], Math.min(CLOSEST, transform.k * 2.2));
       });
 
     const observer = new ResizeObserver(resize);
