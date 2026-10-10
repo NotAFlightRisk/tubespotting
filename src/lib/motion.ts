@@ -1,14 +1,6 @@
 import { layouts, pointAlong, type Layout } from './layout.js';
 import type { LineId } from './lines.js';
-import {
-  distance,
-  lane,
-  lineGraph,
-  pathBetween,
-  runTime,
-  stations,
-  type Point
-} from './network.js';
+import { lane, lineGraph, pathBetween, runTime, span, stations, type Point } from './network.js';
 import type { TrainReading } from './types.js';
 
 /** One hop between calls, in epoch seconds */
@@ -26,9 +18,11 @@ export interface Placement extends Point {
   angle: number;
   /** Set while the train is stood at a station */
   at: number | null;
-  /** The neighbouring stations either side of it, and how far along the track between them */
+  /** The stations either side of it, facing the second, and how far along it is between them */
   between: [number, number];
   f: number;
+  /** Metres a second the way it faces */
+  speed: number;
 }
 
 /** Live run times keyed `line:from>to`, measured off every train's own ETAs */
@@ -109,26 +103,24 @@ export function schedule(train: TrainReading, at: number, runs: Runs = new Map()
 }
 
 const ease = (f: number) => 0.5 - 0.5 * Math.cos(Math.PI * f);
+// how fast `ease` is going at f, over a run of one second
+const slope = (f: number) => (Math.PI / 2) * Math.sin(Math.PI * f);
 
-// time is shared out by real distance, so a train keeps the same pace on either map
-function along(line: LineId, path: number[], fraction: number, layout: Layout): Placement {
-  let total = 0;
-  const lengths = path.slice(1).map((stop, i) => {
-    const length = distance(stations[path[i]], stations[stop]);
-    total += length;
-    return length;
-  });
-  let left = fraction * total;
-  for (let i = 0; i < lengths.length; i++) {
-    if (left > lengths[i] && i < lengths.length - 1) {
-      left -= lengths[i];
+// placed by real distance, so a train keeps the same pace on either map
+export function along(line: LineId, path: number[], metres: number, layout: Layout): Placement {
+  let left = metres;
+  for (let i = 1; i < path.length; i++) {
+    const [a, b] = [path[i - 1], path[i]];
+    const length = span([a, b]);
+    if (left > length && i < path.length - 1) {
+      left -= length;
       continue;
     }
-    const [a, b] = [path[i], path[i + 1]];
-    const f = lengths[i] ? Math.min(1, left / lengths[i]) : 0;
+    const f = length ? Math.min(1, left / length) : 0;
     const { x, y, angle, side } = pointAlong(layout.shape(a, b), f);
     const shift = lane(a, b, line);
-    return { x, y, ox: side.x * shift, oy: side.y * shift, angle, at: null, between: [a, b], f };
+    const [ox, oy] = [side.x * shift, side.y * shift];
+    return { x, y, ox, oy, angle, at: null, between: [a, b], f, speed: 0 };
   }
   return standing(line, path[0], path[0], layout);
 }
@@ -137,7 +129,8 @@ function standing(line: LineId, station: number, towards: number, layout: Layout
   const next = pathBetween(line, station, towards)?.[1];
   if (next === undefined) {
     const { x, y } = layout.at[station];
-    return { x, y, ox: 0, oy: 0, angle: 0, at: station, between: [station, station], f: 0 };
+    const between: [number, number] = [station, station];
+    return { x, y, ox: 0, oy: 0, angle: 0, at: station, between, f: 0, speed: 0 };
   }
   return { ...along(line, [station, next], 0, layout), at: station };
 }
@@ -154,6 +147,45 @@ export function locate(
   if (!leg) return standing(line, fallback, fallback, layout);
   if (t < leg.depart) return standing(line, leg.from, leg.to, layout);
   const path = pathBetween(line, leg.from, leg.to) ?? [leg.from, leg.to];
-  const progress = Math.min(1, (t - leg.depart) / Math.max(leg.arrive - leg.depart, MIN_RUN));
-  return { ...along(line, path, ease(progress), layout), at: progress === 1 ? leg.to : null };
+  const run = Math.max(leg.arrive - leg.depart, MIN_RUN);
+  const progress = Math.min(1, (t - leg.depart) / run);
+  const metres = span(path);
+  const placed = along(line, path, ease(progress) * metres, layout);
+  return { ...placed, at: progress === 1 ? leg.to : null, speed: (slope(progress) * metres) / run };
+}
+
+/** A way along a line between two placements, `start` and `end` being metres along `path` */
+export interface Route {
+  path: number[];
+  start: number;
+  end: number;
+  /** Sets off backwards, against the way the first placement faces */
+  back: boolean;
+}
+
+/** The shortest way along the line from one placement to another, never across country */
+export function route(line: LineId, from: Placement, to: Placement): Route | null {
+  const [a, b] = from.between;
+  const [c, d] = to.between;
+  const [ab, cd] = [span([a, b]), span([c, d])];
+  if ((a === c && b === d) || (a === d && b === c)) {
+    const [start, end] = [from.f * ab, (a === c ? to.f : 1 - to.f) * ab];
+    return end < start
+      ? { path: [b, a], start: ab - start, end: ab - end, back: true }
+      : { path: [a, b], start, end, back: false };
+  }
+  let best: Route | null = null;
+  // out the front first, so a tie keeps it heading the way it faces
+  for (const back of [false, true]) {
+    const [rear, out] = back ? [b, a] : [a, b];
+    const start = (back ? 1 - from.f : from.f) * ab;
+    for (const into of [c, d]) {
+      const middle = pathBetween(line, out, into);
+      if (!middle) continue;
+      const end = ab + span(middle) + (into === c ? to.f : 1 - to.f) * cd;
+      if (!best || end - start < best.end - best.start)
+        best = { path: [rear, ...middle, into === c ? d : c], start, end, back };
+    }
+  }
+  return best;
 }

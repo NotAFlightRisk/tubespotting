@@ -33,6 +33,14 @@ export const unproject = ({ x, y }: Point) => ({
 
 export const distance = (a: Point, b: Point) => Math.hypot(b.x - a.x, b.y - a.y);
 
+/** Metres along a run of stations, straight from each to the next */
+export function span(path: number[]) {
+  let metres = 0;
+  for (let i = 1; i < path.length; i++)
+    metres += distance(stations[path[i - 1]], stations[path[i]]);
+  return metres;
+}
+
 export const middle = (points: Point[]): Point => ({
   x: points.reduce((sum, p) => sum + p.x, 0) / points.length,
   y: points.reduce((sum, p) => sum + p.y, 0) / points.length
@@ -193,12 +201,7 @@ const runs = new Map(lineData.map((line) => [line.id, line.runs]));
 /** Timetabled seconds between two neighbouring calls, else a guess off the distance */
 export function runTime(line: LineId, from: number, to: number): number {
   const timetabled = runs.get(line)?.[`${from}>${to}`];
-  if (timetabled) return timetabled;
-  const path = pathBetween(line, from, to) ?? [from, to];
-  let metres = 0;
-  for (let i = 1; i < path.length; i++)
-    metres += distance(stations[path[i - 1]], stations[path[i]]);
-  return 30 + metres / 14;
+  return timetabled || 30 + span(pathBetween(line, from, to) ?? [from, to]) / 14;
 }
 
 /** Timetabled seconds between any two stations on a line, call by call */

@@ -78,7 +78,26 @@ describe('readTrains', () => {
       ],
       [[index('940GZZLUKOY'), 90]]
     ]);
+    // numbering them would swap them over whenever the other's next call came up first
+    expect(trains.map((train) => train.id)).toEqual(['district:003', 'district:003']);
   });
+
+  it.each([
+    ['on its way through', ['910GWCHAPXR', 150]],
+    ['at the end of its run', null]
+  ] as const)(
+    "doesn't leave a ghost of a call TfL lists at both of a hub's stations, %s",
+    (_, onward) => {
+      const elizabeth = { lineId: 'elizabeth', vehicleId: '202610106737595', currentLocation: '' };
+      const trains = read([
+        call('910GLIVST', 30, elizabeth),
+        call('910GLIVSTLL', 30, elizabeth),
+        ...(onward ? [call(onward[0], onward[1], elizabeth)] : [])
+      ]);
+      expect(trains).toHaveLength(1);
+      expect(trains[0].stops[0][0]).toBe(index('910GLIVSTLL'));
+    }
+  );
 
   it('rebuilds nameless trains from their timing', () => {
     const northern = (naptan: string, eta: number, where: string) =>
@@ -109,6 +128,23 @@ describe('readTrains', () => {
       ]
     ]);
     expect(trains.every((train) => train.id === null)).toBe(true);
+  });
+
+  it('keeps a nameless train with one call left, though another calls there just before', () => {
+    const victoria = (naptan: string, eta: number, where: string) =>
+      call(naptan, eta, { vehicleId: '000', currentLocation: where });
+    const trains = read([
+      victoria('940GZZLUKSX', 20, "Between Euston and King's Cross"),
+      victoria('940GZZLUKSX', 75, 'At Euston'),
+      victoria('940GZZLUHAI', 200, "Between Euston and King's Cross")
+    ]);
+    expect(trains.map(stopsOf).sort((a, b) => a[0][1] - b[0][1])).toEqual([
+      [
+        [index('940GZZLUKSX'), 20],
+        [index('940GZZLUHAI'), 200]
+      ],
+      [[index('940GZZLUKSX'), 75]]
+    ]);
   });
 
   it("keeps a named train whole when TfL's destination text wobbles", () => {
@@ -205,6 +241,14 @@ describe('lastStation', () => {
   it("gives up on places that aren't stations", () => {
     expect(lastStation('Approaching Vauxhall', 'victoria')).toBeNull();
     expect(lastStation('At Platform', 'victoria')).toBeNull();
+  });
+
+  it("starts a train at the station it's approaching when TfL has no call there", () => {
+    const nearing = { currentLocation: 'Approaching Vauxhall Platform 1' };
+    const [skipped] = read([call('940GZZLUPCO', 200, nearing)]);
+    expect(skipped.from).toBe(index('940GZZLUVXL'));
+    const [next] = read([call('940GZZLUVXL', 30, nearing), call('940GZZLUPCO', 150, nearing)]);
+    expect(next.from).toBeNull();
   });
 });
 

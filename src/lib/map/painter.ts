@@ -526,7 +526,7 @@ export function paintTrains(
       ctx.stroke();
     }
     ctx.restore();
-    hits.set(train.key, { ...p, radius: Math.max(14, length) });
+    if (!train.gone) hits.set(train.key, { ...p, radius: Math.max(14, length) });
   }
   ctx.globalAlpha = 1;
   if (focus.station !== null) {

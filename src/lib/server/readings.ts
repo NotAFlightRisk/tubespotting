@@ -137,6 +137,16 @@ const destinationIn = (line: LineId, call: Call) => {
   return to ? stationNamed(to, line) : null;
 };
 
+const twins = (a: Call, b: Call) => {
+  const hub = stations[a.station].hub;
+  return (
+    a.station !== b.station &&
+    hub !== null &&
+    hub === stations[b.station].hub &&
+    Math.abs(a.eta - b.eta) < SAME_CALL
+  );
+};
+
 /** Calls chain into trains stop by stop, each joining the train that could get there in time */
 function chains(line: LineId, calls: Call[], named: boolean): Call[][] {
   const trains: Chain[] = [];
@@ -160,7 +170,16 @@ function chains(line: LineId, calls: Call[], named: boolean): Call[][] {
     if (home) home.calls.push(call);
     else trains.push({ calls: [call], dest: destinationIn(line, call) });
   }
-  return trains.map((train) => train.calls);
+  // TfL lists a call at each of a hub's stations, leaving a ghost; the through one wins a tie
+  const sides = (run: Call[]) => lineGraph.get(line)?.get(run[0].station)?.size ?? 0;
+  const beats = (a: Call[], b: Call[]) =>
+    (a.length - b.length || sides(a) - sides(b) || b[0].station - a[0].station) > 0;
+  const runs = trains.map((train) => train.calls);
+  return runs.filter((run) =>
+    run.some(
+      (call) => !runs.some((other) => beats(other, run) && other.some((c) => twins(c, call)))
+    )
+  );
 }
 
 function toReading(
@@ -171,13 +190,16 @@ function toReading(
 ): TrainReading {
   const where = calls[0].prediction.currentLocation?.trim() ?? '';
   const to = calls.map((c) => destinationOf(c.prediction)).find(Boolean) ?? '';
+  // nearly at a station it has no call for, which beats guessing from a far-off one
+  const nearing = /^Approaching (.+)$/i.exec(where);
+  const ahead = nearing ? stationNamed(nearing[1], line) : null;
   return {
     id,
     line,
     to,
     dest: to ? stationNamed(to, line) : null,
     where,
-    from: lastStation(where, line),
+    from: lastStation(where, line) ?? (ahead === calls[0].station ? null : ahead),
     stops: calls.map((c): Stop => [c.station, c.eta, platforms.index(c.platform)])
   };
 }
@@ -237,17 +259,16 @@ export function readTrains(
 
   const trains: TrainReading[] = [];
   for (const { line, id, predictions: group } of groups.values()) {
-    chains(line, toCalls(line, group, at), id !== null).forEach((train, i) => {
-      if (train[0].eta > FIRST_CALL) return;
-      trains.push(toReading(line, id && (i ? `${id}#${i}` : id), train, platforms));
-    });
+    // TfL can give two trains the same id, so the client tells them apart by where they are
+    for (const train of chains(line, toCalls(line, group, at), id !== null)) {
+      if (train[0].eta <= FIRST_CALL) trains.push(toReading(line, id, train, platforms));
+    }
   }
   return withoutTurnbacks(dedupe(withoutReturnTrips(trains)));
 }
 
 // TfL's id, or failing that where it says the train is, which is the same for all its calls
-const vehicleOf = (train: TrainReading) =>
-  train.id ? train.id.split('#')[0] : `${train.line}|${train.where}`;
+const vehicleOf = (train: TrainReading) => train.id ?? `${train.line}|${train.where}`;
 
 /** A train's next trip back shows up too, starting where this one ends */
 function withoutReturnTrips(trains: TrainReading[]): TrainReading[] {
