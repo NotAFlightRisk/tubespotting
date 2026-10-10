@@ -2,6 +2,7 @@ import { TFL_APP_KEY } from '$app/env/private';
 import { LINE_IDS, MODES } from '#lib/lines.js';
 import type { Snapshot } from '#lib/types.js';
 import { Platforms, readStatus, readTrains, type Prediction } from './readings.js';
+import { report } from './report.js';
 
 const BASE = 'https://api.tfl.gov.uk';
 const FRESH = 10_000;
@@ -9,6 +10,8 @@ const TIMEOUT = 15_000;
 // a status that's a few minutes old is still news
 const STATUS_EVERY = 60_000;
 const RETRY = 20_000;
+// TfL drops out now and then, so it's only worth a report once it's been gone this long
+const OUTAGE = 10 * 60_000;
 
 async function get<T>(path: string): Promise<T> {
   const url = new URL(BASE + path);
@@ -25,6 +28,7 @@ let current: { snapshot: Snapshot; body: string } | null = null;
 let statusAt = 0;
 let refreshing: Promise<void> | null = null;
 let retryAt = 0;
+let failingSince: number | null = null;
 
 async function refresh() {
   const wantStatus = !current || Date.now() - statusAt > STATUS_EVERY;
@@ -36,9 +40,16 @@ async function refresh() {
         )
       : null
   ]);
-  const told = status.status === 'fulfilled' && Array.isArray(status.value);
-  if (told) statusAt = Date.now();
-  const lines = told ? readStatus(status.value!) : (current?.snapshot.status ?? []);
+  let lines = current?.snapshot.status ?? [];
+  if (status.status === 'fulfilled' && Array.isArray(status.value)) {
+    statusAt = Date.now();
+    // TfL answered, so a throw here is our bug, and the trains carry on without it
+    try {
+      lines = readStatus(status.value);
+    } catch (err) {
+      await report(err);
+    }
+  }
 
   try {
     if (arrivals.status === 'rejected') throw arrivals.reason;
@@ -47,9 +58,16 @@ async function refresh() {
     const platforms = new Platforms();
     const trains = readTrains(arrivals.value, at, platforms);
     current = wrap({ at, stale: false, trains, platforms: platforms.names, status: lines });
+    failingSince = null;
   } catch (err) {
     // and give TfL a breather rather than asking again on every request
     retryAt = Date.now() + RETRY;
+    failingSince ??= Date.now();
+    // arrivals we can't read are our bug, but TfL's blips only matter once they drag on
+    if (arrivals.status === 'fulfilled' && Array.isArray(arrivals.value)) await report(err);
+    else if (Date.now() - failingSince > OUTAGE) {
+      await report(new Error(`No trains from TfL for ${OUTAGE / 60_000} minutes`, { cause: err }));
+    }
     if (!current) throw err;
     // the last good reading beats an error page, so keep it and say it's stale
     console.error('Refresh failed, serving the last reading', err);
