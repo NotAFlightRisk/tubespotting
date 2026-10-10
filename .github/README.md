@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <a href="https://tubespotting.peng.ly/"><img src="screenshot.png" alt="The live map, with trains on every line around central London and the line status board down the side" width="800" /></a>
+  <a href="https://tubespotting.peng.ly/"><img src="https://github.com/user-attachments/assets/7d80a3d7-b9fa-4951-8791-0f20f94a44f9" alt="The live map, with trains on every line around central London and the line status board down the side" width="800" /></a>
 </p>
 
 <details>
@@ -22,8 +22,7 @@
 </details>
 
 ## About
-
-A live map of the Tube. Every train on all eleven Underground lines, moving in real-time between stations as TfL reports them.
+Real-time London Underground map, showing live tube, Elizabeth line, Overground, DLR, Trams and trains using TfL data.
 
 ---
 
@@ -44,22 +43,21 @@ Just open [tubespotting.peng.ly](https://tubespotting.peng.ly/) and drag/ pinch 
 
 ## Deployment
 
-### Option 1: Cloudflare
-
-It ships with `@sveltejs/adapter-cloudflare` and a `wrangler.jsonc`. Point the route at your own hostname, set `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, then:
-
-```shell
-ADAPTER=cloudflare npm run build && npx wrangler deploy
-```
-
-The free plan's CPU limit is too tight for reading the whole network every few seconds, so you'll want Workers Paid.
-
-### Option 2: Docker
+### Option 1: Docker
 
 There's a multi-arch image on DockerHub ([`notaflightrisk/tubespotting`](https://hub.docker.com/r/notaflightrisk/tubespotting)) and GHCR ([`ghcr.io/notaflightrisk/tubespotting`](https://github.com/NotAFlightRisk/tubespotting/pkgs/container/tubespotting)):
 
 ```shell
 docker run -p 3000:3000 notaflightrisk/tubespotting
+```
+
+
+### Option 2: Cloudflare
+
+Set `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, then:
+
+```shell
+ADAPTER=cloudflare npm run build && npx wrangler deploy
 ```
 
 ### Option 3: From a release
@@ -102,10 +100,7 @@ npm run dev
 ```
 
 The dev server is then on [localhost:5173](http://localhost:5173).<br>
-The other scripts you'll want are `npm run check` (types), `npm test` (tests) and `npm run format`.
-
-The stations, routes and run times live in `src/lib/data/network.json`, along with each track's real shape from OpenStreetMap and the tube map layout. That follows TfL's own map, with its stations placed by hand in `scripts/tube-map.mjs` and the track between them routed by `scripts/schematic.mjs`. When TfL changes the network, rebuild it with `npm run network` (put your `TFL_APP_KEY` in the environment first, it makes about 100 calls). After editing just the tube map, `npm run network -- --tube-map` lays it out again without calling TfL.
-
+The other scripts you'll want are `npm run check` (types), `npm test` (tests) and `npm run format`.<br>
 Alternatively, build the container with `docker build -t tubespotting .`
 
 ---
