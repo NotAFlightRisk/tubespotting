@@ -1,5 +1,13 @@
 import { isLineId, type LineId } from '#lib/lines.js';
-import { callsApart, lineGraph, stationById, stations, travelTime } from '#lib/network.js';
+import {
+  callsApart,
+  lineGraph,
+  pair,
+  pathBetween,
+  stationById,
+  stations,
+  travelTime
+} from '#lib/network.js';
 import type { LineStatus, Stop, TrainReading } from '#lib/types.js';
 
 export interface Prediction {
@@ -137,6 +145,16 @@ const destinationIn = (line: LineId, call: Call) => {
   return to ? stationNamed(to, line) : null;
 };
 
+const twins = (a: Call, b: Call) => {
+  const hub = stations[a.station].hub;
+  return (
+    a.station !== b.station &&
+    hub !== null &&
+    hub === stations[b.station].hub &&
+    Math.abs(a.eta - b.eta) < SAME_CALL
+  );
+};
+
 /** Calls chain into trains stop by stop, each joining the train that could get there in time */
 function chains(line: LineId, calls: Call[], named: boolean): Call[][] {
   const trains: Chain[] = [];
@@ -160,7 +178,16 @@ function chains(line: LineId, calls: Call[], named: boolean): Call[][] {
     if (home) home.calls.push(call);
     else trains.push({ calls: [call], dest: destinationIn(line, call) });
   }
-  return trains.map((train) => train.calls);
+  // TfL lists a call at each of a hub's stations, leaving a ghost; the through one wins a tie
+  const sides = (run: Call[]) => lineGraph.get(line)?.get(run[0].station)?.size ?? 0;
+  const beats = (a: Call[], b: Call[]) =>
+    (a.length - b.length || sides(a) - sides(b) || b[0].station - a[0].station) > 0;
+  const runs = trains.map((train) => train.calls);
+  return runs.filter((run) =>
+    run.some(
+      (call) => !runs.some((other) => beats(other, run) && other.some((c) => twins(c, call)))
+    )
+  );
 }
 
 function toReading(
@@ -171,13 +198,16 @@ function toReading(
 ): TrainReading {
   const where = calls[0].prediction.currentLocation?.trim() ?? '';
   const to = calls.map((c) => destinationOf(c.prediction)).find(Boolean) ?? '';
+  // nearly at a station it has no call for, which beats guessing from a far-off one
+  const nearing = /^Approaching (.+)$/i.exec(where);
+  const ahead = nearing ? stationNamed(nearing[1], line) : null;
   return {
     id,
     line,
     to,
     dest: to ? stationNamed(to, line) : null,
     where,
-    from: lastStation(where, line),
+    from: lastStation(where, line) ?? (ahead === calls[0].station ? null : ahead),
     stops: calls.map((c): Stop => [c.station, c.eta, platforms.index(c.platform)])
   };
 }
@@ -237,17 +267,16 @@ export function readTrains(
 
   const trains: TrainReading[] = [];
   for (const { line, id, predictions: group } of groups.values()) {
-    chains(line, toCalls(line, group, at), id !== null).forEach((train, i) => {
-      if (train[0].eta > FIRST_CALL) return;
-      trains.push(toReading(line, id && (i ? `${id}#${i}` : id), train, platforms));
-    });
+    // TfL can give two trains the same id, so the client tells them apart by where they are
+    for (const train of chains(line, toCalls(line, group, at), id !== null)) {
+      if (train[0].eta <= FIRST_CALL) trains.push(toReading(line, id, train, platforms));
+    }
   }
   return withoutTurnbacks(dedupe(withoutReturnTrips(trains)));
 }
 
 // TfL's id, or failing that where it says the train is, which is the same for all its calls
-const vehicleOf = (train: TrainReading) =>
-  train.id ? train.id.split('#')[0] : `${train.line}|${train.where}`;
+const vehicleOf = (train: TrainReading) => train.id ?? `${train.line}|${train.where}`;
 
 /** A train's next trip back shows up too, starting where this one ends */
 function withoutReturnTrips(trains: TrainReading[]): TrainReading[] {
@@ -302,9 +331,40 @@ function withoutTurnbacks(trains: TrainReading[]): TrainReading[] {
   return trains.filter((train) => !turned.has(train));
 }
 
+interface RawLineStatus {
+  statusSeverity: number;
+  statusSeverityDescription: string;
+  reason?: string;
+  disruption?: {
+    affectedRoutes?: { routeSectionNaptanEntrySequence?: { stopPoint: { id: string } }[] }[];
+  };
+}
+
 interface RawStatus {
   id: string;
-  lineStatuses?: { statusSeverity: number; statusSeverityDescription: string; reason?: string }[];
+  lineStatuses?: RawLineStatus[];
+}
+
+// shut, suspended or not running, but not the nightly close
+const SHUT = new Set([1, 2, 3, 4, 5, 11, 16]);
+
+/** The tracks a closure takes trains off, stop by stop along each route TfL names */
+function closedOn(line: LineId, statuses: RawLineStatus[]) {
+  const closed = new Set<string>();
+  for (const { statusSeverity, disruption } of statuses) {
+    if (!SHUT.has(statusSeverity)) continue;
+    for (const route of disruption?.affectedRoutes ?? []) {
+      const stops = (route.routeSectionNaptanEntrySequence ?? []).flatMap(
+        ({ stopPoint }) => stationById.get(stopPoint.id)?.index ?? []
+      );
+      for (let i = 1; i < stops.length; i++) {
+        const path = pathBetween(line, stops[i - 1], stops[i]) ?? [];
+        if (path.length - 1 > MAX_HOPS) continue;
+        for (let j = 1; j < path.length; j++) closed.add(pair(path[j - 1], path[j]));
+      }
+    }
+  }
+  return [...closed];
 }
 
 export const readStatus = (raw: RawStatus[]): LineStatus[] =>
@@ -313,12 +373,14 @@ export const readStatus = (raw: RawStatus[]): LineStatus[] =>
     const worst = [...(line.lineStatuses ?? [])].sort(
       (a, b) => a.statusSeverity - b.statusSeverity
     )[0];
+    const closed = closedOn(line.id, line.lineStatuses ?? []);
     return [
       {
         id: line.id,
         severity: worst?.statusSeverity ?? 10,
         status: worst?.statusSeverityDescription ?? 'Unknown',
-        reason: worst?.reason?.replace(/\s+/g, ' ').trim() || null
+        reason: worst?.reason?.replace(/\s+/g, ' ').trim() || null,
+        closed: closed.length ? closed : undefined
       }
     ];
   });

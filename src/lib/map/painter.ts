@@ -6,6 +6,7 @@ import {
   lane,
   lineRuns,
   middle,
+  pair,
   routeGraph,
   sideways,
   stations,
@@ -57,7 +58,14 @@ export interface Inset {
   bottom: number;
 }
 
+/** Each line's shut stretches, keyed by station pair */
+export type Closures = ReadonlyMap<LineId, Set<string>>;
+
 const FADED = 0.16;
+// colour a shut stretch keeps, how strong its stripes are, and their size and gaps in widths
+const SHUT = 0.75;
+const STRIPED = 0.5;
+const STRIPES = [0.4, 0.8];
 const RIVER_METRES = 230;
 // line widths back from a station that a bend starts, like the printed map's corners
 const BEND = 1.5;
@@ -225,6 +233,19 @@ function traceRun(ctx: CanvasRenderingContext2D, view: View, spans: Span[], widt
   });
 }
 
+/** A run cut wherever it goes in or out of a closure, each piece knowing which */
+function pieces(run: number[], closed: Set<string> | undefined) {
+  if (!closed?.size) return [{ stops: run, shut: false }];
+  const parts: { stops: number[]; shut: boolean }[] = [];
+  for (let i = 1; i < run.length; i++) {
+    const shut = closed.has(pair(run[i - 1], run[i]));
+    const last = parts.at(-1);
+    if (last?.shut === shut) last.stops.push(run[i]);
+    else parts.push({ stops: [run[i - 1], run[i]], shut });
+  }
+  return parts;
+}
+
 function drawRiver(ctx: CanvasRenderingContext2D, view: View, layout: Layout, palette: Palette) {
   ctx.strokeStyle = palette.river;
   ctx.lineWidth = Math.max(3, RIVER_METRES * view.k);
@@ -244,19 +265,38 @@ function drawTracks(
   view: View,
   layout: Layout,
   palette: Palette,
-  focus: Focus
+  focus: Focus,
+  closed: Closures
 ) {
   const width = lineWidth(view.k);
   ctx.lineWidth = width;
   for (const { id: line } of DRAW_ORDER) {
     if (!focus.shown.has(line)) continue;
-    ctx.globalAlpha = lineAlpha(focus, line);
+    const parts = lineRuns.get(line)!.flatMap((run) => pieces(run, closed.get(line)));
+    const trace = (shut: boolean) => {
+      ctx.beginPath();
+      for (const part of parts) {
+        if (part.shut !== shut) continue;
+        traceRun(ctx, view, spansOf(view, layout, line, part.stops, width), width);
+      }
+    };
+    const alpha = lineAlpha(focus, line);
+    ctx.globalAlpha = alpha;
     ctx.strokeStyle = palette.lines[line];
-    ctx.beginPath();
-    for (const run of lineRuns.get(line)!) {
-      traceRun(ctx, view, spansOf(view, layout, line, run, width), width);
-    }
+    trace(false);
     ctx.stroke();
+    if (!parts.some((part) => part.shut)) continue;
+    // a shut stretch fades back, with faint stripes across it
+    trace(true);
+    ctx.globalAlpha = alpha * SHUT;
+    ctx.stroke();
+    ctx.globalAlpha = alpha * STRIPED;
+    ctx.strokeStyle = palette.paper;
+    ctx.lineCap = 'butt';
+    ctx.setLineDash(STRIPES.map((by) => Math.max(1, by * width)));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.lineCap = 'round';
   }
   ctx.globalAlpha = 1;
 }
@@ -448,13 +488,14 @@ export function paintLabels(
   ctx.globalAlpha = 1;
 }
 
-/** The network itself, redrawn only when the view, focus or theme changes */
+/** The network itself, redrawn only when the view, focus or theme changes, or a reading lands */
 export function paintNetwork(
   ctx: CanvasRenderingContext2D,
   view: View,
   layout: Layout,
   palette: Palette,
   focus: Focus,
+  closed: Closures,
   inset: Inset
 ): { hits: Map<number, Hit>; labels: Label[] } {
   const hits = new Map<number, Hit>();
@@ -463,7 +504,7 @@ export function paintNetwork(
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   drawRiver(ctx, view, layout, palette);
-  drawTracks(ctx, view, layout, palette, focus);
+  drawTracks(ctx, view, layout, palette, focus, closed);
   drawStations(ctx, view, layout, palette, focus, hits);
   return { hits, labels: placeLabels(ctx, view, layout, focus, hits, inset) };
 }
@@ -526,7 +567,7 @@ export function paintTrains(
       ctx.stroke();
     }
     ctx.restore();
-    hits.set(train.key, { ...p, radius: Math.max(14, length) });
+    if (!train.gone) hits.set(train.key, { ...p, radius: Math.max(14, length) });
   }
   ctx.globalAlpha = 1;
   if (focus.station !== null) {
