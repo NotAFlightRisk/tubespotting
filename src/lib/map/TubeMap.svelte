@@ -11,6 +11,7 @@
     paintLabels,
     paintNetwork,
     paintTrains,
+    type Closures,
     type Focus,
     type Hit,
     type Inset,
@@ -166,6 +167,15 @@
     dirty = true;
   });
 
+  const closed: Closures = $derived(
+    new Map(live.snapshot?.status.map(({ id, closed }) => [id, new Set(closed)]))
+  );
+
+  $effect(() => {
+    void closed;
+    dirty = true;
+  });
+
   // picking a line fades the rest back rather than cutting
   let fading = { from: null as Focus['line'], to: null as Focus['line'], since: 0 };
   const FADE_MS = 400;
@@ -313,7 +323,7 @@
         if (Math.hypot(dx, dy) > 0.75) select(top).call(behaviour.translateBy, dx / v.k, dy / v.k);
       }
       if (dirty || morphing || lens.fade < 1) {
-        const network = paintNetwork(baseCtx, view(), layout, palette, lens, inset);
+        const network = paintNetwork(baseCtx, view(), layout, palette, lens, closed, inset);
         [stationHits, labels] = [network.hits, network.labels];
         dirty = false;
       }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { stations } from '#lib/network.js';
+import { pair, stations } from '#lib/network.js';
 import { lastStation, Platforms, readStatus, readTrains } from '#lib/server/readings.js';
 import { AT, call, index } from '../helpers.js';
 
@@ -275,5 +275,36 @@ describe('readStatus', () => {
       status: 'Severe Delays',
       reason: 'Signal failure'
     });
+  });
+
+  it('lists the tracks a closure shuts, once each, but not ones that are only delayed', () => {
+    const route = (...ids: string[]) => ({
+      routeSectionNaptanEntrySequence: ids.map((id) => ({ stopPoint: { id } }))
+    });
+    const [ERC, PAC, BWT] = ['940GZZLUERC', '940GZZLUPAC', '940GZZLUBWT'];
+    const [circle, bakerloo] = readStatus([
+      {
+        id: 'circle',
+        lineStatuses: [
+          {
+            statusSeverity: 5,
+            statusSeverityDescription: 'Part Closure',
+            disruption: { affectedRoutes: [route(ERC, PAC, BWT), route(BWT, PAC, ERC)] }
+          }
+        ]
+      },
+      {
+        id: 'bakerloo',
+        lineStatuses: [
+          {
+            statusSeverity: 6,
+            statusSeverityDescription: 'Severe Delays',
+            disruption: { affectedRoutes: [route('940GZZLUQPS', '940GZZLUKSL')] }
+          }
+        ]
+      }
+    ]);
+    expect(circle.closed).toEqual([pair(index(ERC), index(PAC)), pair(index(PAC), index(BWT))]);
+    expect(bakerloo.closed).toBeUndefined();
   });
 });

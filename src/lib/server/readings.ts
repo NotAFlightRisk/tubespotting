@@ -1,5 +1,13 @@
 import { isLineId, type LineId } from '#lib/lines.js';
-import { callsApart, lineGraph, stationById, stations, travelTime } from '#lib/network.js';
+import {
+  callsApart,
+  lineGraph,
+  pair,
+  pathBetween,
+  stationById,
+  stations,
+  travelTime
+} from '#lib/network.js';
 import type { LineStatus, Stop, TrainReading } from '#lib/types.js';
 
 export interface Prediction {
@@ -323,9 +331,40 @@ function withoutTurnbacks(trains: TrainReading[]): TrainReading[] {
   return trains.filter((train) => !turned.has(train));
 }
 
+interface RawLineStatus {
+  statusSeverity: number;
+  statusSeverityDescription: string;
+  reason?: string;
+  disruption?: {
+    affectedRoutes?: { routeSectionNaptanEntrySequence?: { stopPoint: { id: string } }[] }[];
+  };
+}
+
 interface RawStatus {
   id: string;
-  lineStatuses?: { statusSeverity: number; statusSeverityDescription: string; reason?: string }[];
+  lineStatuses?: RawLineStatus[];
+}
+
+// shut, suspended or not running, but not the nightly close
+const SHUT = new Set([1, 2, 3, 4, 5, 11, 16]);
+
+/** The tracks a closure takes trains off, stop by stop along each route TfL names */
+function closedOn(line: LineId, statuses: RawLineStatus[]) {
+  const closed = new Set<string>();
+  for (const { statusSeverity, disruption } of statuses) {
+    if (!SHUT.has(statusSeverity)) continue;
+    for (const route of disruption?.affectedRoutes ?? []) {
+      const stops = (route.routeSectionNaptanEntrySequence ?? []).flatMap(
+        ({ stopPoint }) => stationById.get(stopPoint.id)?.index ?? []
+      );
+      for (let i = 1; i < stops.length; i++) {
+        const path = pathBetween(line, stops[i - 1], stops[i]) ?? [];
+        if (path.length - 1 > MAX_HOPS) continue;
+        for (let j = 1; j < path.length; j++) closed.add(pair(path[j - 1], path[j]));
+      }
+    }
+  }
+  return [...closed];
 }
 
 export const readStatus = (raw: RawStatus[]): LineStatus[] =>
@@ -334,12 +373,14 @@ export const readStatus = (raw: RawStatus[]): LineStatus[] =>
     const worst = [...(line.lineStatuses ?? [])].sort(
       (a, b) => a.statusSeverity - b.statusSeverity
     )[0];
+    const closed = closedOn(line.id, line.lineStatuses ?? []);
     return [
       {
         id: line.id,
         severity: worst?.statusSeverity ?? 10,
         status: worst?.statusSeverityDescription ?? 'Unknown',
-        reason: worst?.reason?.replace(/\s+/g, ' ').trim() || null
+        reason: worst?.reason?.replace(/\s+/g, ' ').trim() || null,
+        closed: closed.length ? closed : undefined
       }
     ];
   });

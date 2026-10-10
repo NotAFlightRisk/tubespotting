@@ -32,7 +32,7 @@ async function refresh() {
     get<Prediction[]>(`/Line/${LINE_IDS.join(',')}/Arrivals`),
     wantStatus
       ? get<Parameters<typeof readStatus>[0]>(
-          `/Line/Mode/${MODES.map((m) => m.id).join(',')}/Status`
+          `/Line/Mode/${MODES.map((m) => m.id).join(',')}/Status?detail=true`
         )
       : null
   ]);

@@ -46,7 +46,8 @@ export const middle = (points: Point[]): Point => ({
   y: points.reduce((sum, p) => sum + p.y, 0) / points.length
 });
 
-const pair = (a: number, b: number) => (a < b ? `${a}-${b}` : `${b}-${a}`);
+/** One key for the track between two stations, whichever way round */
+export const pair = (a: number, b: number) => (a < b ? `${a}-${b}` : `${b}-${a}`);
 
 export const stations: Station[] = data.stations.map((s, index) => ({
   index,

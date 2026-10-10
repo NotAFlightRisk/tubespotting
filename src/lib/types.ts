@@ -21,6 +21,8 @@ export interface LineStatus {
   severity: number;
   status: string;
   reason: string | null;
+  /** Tracks with no trains on, as the network's pair keys, when some or all of the line is shut */
+  closed?: string[];
 }
 
 export interface Snapshot {
