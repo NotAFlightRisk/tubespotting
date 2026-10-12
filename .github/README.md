@@ -22,6 +22,7 @@
 </details>
 
 ## About
+
 Real-time London Underground map, showing live tube, Elizabeth line, Overground, DLR, Trams and trains using TfL data.
 
 ---
@@ -50,7 +51,6 @@ There's a multi-arch image on DockerHub ([`notaflightrisk/tubespotting`](https:/
 ```shell
 docker run -p 3000:3000 notaflightrisk/tubespotting
 ```
-
 
 ### Option 2: Cloudflare
 

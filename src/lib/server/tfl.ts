@@ -1,4 +1,5 @@
 import { TFL_APP_KEY } from '$app/env/private';
+import { waitUntil } from 'cloudflare:workers';
 import { LINE_IDS, MODES } from '#lib/lines.js';
 import type { Snapshot } from '#lib/types.js';
 import { Platforms, readStatus, readTrains, type Prediction } from './readings.js';
@@ -78,11 +79,11 @@ async function refresh() {
 const wrap = (snapshot: Snapshot) => ({ snapshot, body: JSON.stringify(snapshot) });
 
 /** One reading shared by every visitor, refreshed behind their backs once it's a bit old */
-export async function live(waitUntil?: (work: Promise<unknown>) => void): Promise<string> {
+export async function live(): Promise<string> {
   const age = current ? Date.now() - current.snapshot.at : Infinity;
   if (age > FRESH && !refreshing && Date.now() >= retryAt) {
     refreshing = refresh().finally(() => (refreshing = null));
-    waitUntil?.(refreshing.catch(() => {}));
+    waitUntil(refreshing.catch(() => {}));
   }
   // a reading this old is worth waiting for a new one rather than serving
   if (!current || age > FRESH * 6)

@@ -2,12 +2,15 @@ import { sentryVitePlugin } from '@sentry/vite-plugin';
 import cloudflare from '@sveltejs/adapter-cloudflare';
 import node from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 const plausible = process.env.PUBLIC_PLAUSIBLE_SCRIPT ?? '';
 const pulse = plausible ? [new URL(plausible).origin as `${string}.${string}`] : [];
 const sentry = process.env.PUBLIC_SENTRY_DSN ?? '';
 const oops = sentry ? [new URL(sentry).origin as `${string}.${string}`] : [];
+const cloudflareBuild = process.env.ADAPTER === 'cloudflare';
+const workersStandIn = fileURLToPath(new URL('src/lib/server/workers.ts', import.meta.url));
 const uploadMaps = Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_URL);
 
 export default defineConfig({
@@ -15,6 +18,9 @@ export default defineConfig({
     'import.meta.env.PUBLIC_PLAUSIBLE_SCRIPT': JSON.stringify(plausible),
     'import.meta.env.PUBLIC_SENTRY_DSN': JSON.stringify(sentry),
     'import.meta.env.SENTRY_RELEASE': JSON.stringify(process.env.GITHUB_SHA ?? '')
+  },
+  resolve: {
+    alias: cloudflareBuild ? {} : { 'cloudflare:workers': workersStandIn }
   },
   build: {
     // fontsource subsets are small enough to inline, which the CSP would then block
@@ -27,7 +33,7 @@ export default defineConfig({
         runes: ({ filename }) =>
           filename.split(/[/\\]/).includes('node_modules') ? undefined : true
       },
-      adapter: process.env.ADAPTER === 'cloudflare' ? cloudflare() : node(),
+      adapter: cloudflareBuild ? cloudflare() : node(),
       csp: {
         mode: 'hash',
         directives: {
