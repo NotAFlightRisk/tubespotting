@@ -52,6 +52,7 @@ export async function report(error: unknown, event?: RequestEvent) {
   };
   await fetch(`${origin}/api${pathname}/store/?sentry_key=${username}&sentry_version=7`, {
     method: 'POST',
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(5_000)
   }).catch(() => {});
 }

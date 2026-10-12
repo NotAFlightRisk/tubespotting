@@ -1,9 +1,3 @@
-declare global {
-  namespace App {
-    interface Platform {
-      ctx?: { waitUntil(work: Promise<unknown>): void };
-    }
-  }
+declare module 'cloudflare:workers' {
+  export function waitUntil(work: Promise<unknown>): void;
 }
-
-export {};

@@ -2,8 +2,8 @@ import { error } from '@sveltejs/kit';
 import { live } from '#lib/server/tfl.js';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ platform }) => {
-  const body = await live((work) => platform?.ctx?.waitUntil(work)).catch((err) => {
+export const GET: RequestHandler = async () => {
+  const body = await live().catch((err) => {
     console.error('No reading to serve', err);
     return error(503, 'TfL is not answering right now');
   });
