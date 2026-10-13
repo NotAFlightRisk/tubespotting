@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { source } from '#lib/meta.js';
-  import Icon from './Icon.svelte';
+  import { counting, reporting, source } from '#lib/meta.js';
+  import Close from './Close.svelte';
 
   interface Props {
     /** Underground trains running now, or null until TfL has answered */
@@ -10,8 +10,6 @@
 
   let { trains, onclose }: Props = $props();
 
-  const counting = Boolean(import.meta.env.PUBLIC_PLAUSIBLE_SCRIPT);
-  const reporting = Boolean(import.meta.env.PUBLIC_SENTRY_DSN);
   const apps = ['apps.aliciasykes.com', 'peng.ly/projects'];
 </script>
 
@@ -22,9 +20,7 @@
 
 <header>
   <h2>About</h2>
-  <button type="button" class="close" onclick={onclose}>
-    Close <Icon name="close" size={16} />
-  </button>
+  <Close onclick={onclose} />
 </header>
 
 <p>
@@ -78,13 +74,13 @@
       <li>
         We count visits with Plausible, a privacy-friendly analytics tool, to get a rough idea of
         how many people use the map. It sets no cookies, and no personal data is ever collected,
-        stored or shared.
+        stored or shared. You can turn it off in settings.
       </li>
     {/if}
     {#if reporting}
       <li>
         If something breaks, a redacted error report goes to our own bug tracker so we know what to
-        fix.
+        fix. You can turn it off in settings.
       </li>
     {/if}
   </ul>
@@ -112,25 +108,6 @@
     margin: 0;
     font: 26px/1.1 var(--font-display);
     color: var(--station-ink);
-  }
-
-  .close {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    min-height: 36px;
-    margin-right: calc(-1 * var(--space-2));
-    padding: 0 var(--space-2);
-    border: 0;
-    border-radius: var(--radius-small);
-    background: none;
-    color: var(--text-muted);
-    font-size: 13px;
-
-    &:hover {
-      background: var(--surface-sunk);
-      color: var(--text);
-    }
   }
 
   section {

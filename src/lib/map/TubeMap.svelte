@@ -3,7 +3,6 @@
   import 'd3-transition';
   import { zoom, zoomIdentity, type ZoomBehavior, type ZoomTransform } from 'd3-zoom';
   import { onMount } from 'svelte';
-  import { MediaQuery } from 'svelte/reactivity';
   import { between, layouts, type Layout, type Style } from '#lib/layout.js';
   import type { Live } from '#lib/live.svelte.js';
   import { distance, middle, type Point } from '#lib/network.js';
@@ -30,15 +29,30 @@
     inset: Inset;
     style: Style;
     dark: boolean;
+    calm: boolean;
+    /** Zoom, from 0 all the way out to 1 all the way in */
+    level?: number;
     label: string;
     you: Point | null;
     onpick: (tap: Tap) => void;
     onwander: () => void;
   }
 
-  let { live, focus, follow, inset, style, dark, label, you, onpick, onwander }: Props = $props();
+  let {
+    live,
+    focus,
+    follow,
+    inset,
+    style,
+    dark,
+    calm,
+    level = $bindable(0),
+    label,
+    you,
+    onpick,
+    onwander
+  }: Props = $props();
 
-  const calm = new MediaQuery('prefers-reduced-motion: reduce');
   const [FURTHEST, CLOSEST] = [0.004, 1.6];
   // roughly zones 1 and 2, or just zone 1 on a phone
   const START = (wide: boolean) => [
@@ -88,7 +102,7 @@
     // worked out as it sets off, by when the page has put back a saved map style
     select(top)
       .transition()
-      .duration(instant || calm.current ? 0 : 1100)
+      .duration(instant || calm ? 0 : 1100)
       .call(behaviour.transform, () => {
         const { x0, y0, x1, y1 } = bounds(points());
         const [w, h] = [size.width - inset.left, size.height - inset.bottom];
@@ -107,8 +121,12 @@
   export function zoomBy(factor: number) {
     select(top)
       .transition()
-      .duration(calm.current ? 0 : 300)
+      .duration(calm ? 0 : 300)
       .call(behaviour.scaleBy, factor);
+  }
+
+  export function zoomTo(level: number) {
+    select(top).call(behaviour.scaleTo, FURTHEST * (CLOSEST / FURTHEST) ** level);
   }
 
   function nearest<K>(hits: Map<K, Hit>, at: Point): K | null {
@@ -162,8 +180,7 @@
   }
 
   $effect(() => {
-    void dark;
-    palette = readPalette(wrap);
+    palette = readPalette(wrap, dark);
     dirty = true;
   });
 
@@ -190,7 +207,7 @@
   });
 
   const lensAt = (now: number): Focus => {
-    const progress = calm.current ? 1 : Math.min(1, (now - fading.since) / FADE_MS);
+    const progress = calm ? 1 : Math.min(1, (now - fading.since) / FADE_MS);
     return { ...focus, previous: fading.from, fade: 1 - (1 - progress) ** 3 };
   };
 
@@ -207,7 +224,7 @@
 
   const easeInOut = (t: number) => (t < 0.5 ? 4 * t ** 3 : 1 - (2 - 2 * t) ** 3 / 2);
   const morphAt = (now: number) =>
-    easeInOut(calm.current ? 1 : Math.min(1, (now - morph.since) / MORPH_MS));
+    easeInOut(calm ? 1 : Math.min(1, (now - morph.since) / MORPH_MS));
 
   function layoutAt(now: number): Layout {
     const t = morphAt(now);
@@ -261,6 +278,7 @@
       .tapDistance(30)
       .on('zoom', (event) => {
         transform = event.transform;
+        level = Math.log(transform.k / FURTHEST) / Math.log(CLOSEST / FURTHEST);
         dirty = true;
         if (event.sourceEvent) onwander();
       });
@@ -334,7 +352,7 @@
         palette,
         lens,
         live.fleet.trains.values(),
-        calm.current ? 0 : now / 260,
+        calm ? 0 : now / 260,
         you
       );
       // names would only smear about while the map moves, so they step out and back

@@ -15,3 +15,6 @@ export const structuredData = JSON.stringify({
   alternateName: 'tubespotting',
   url: site
 });
+
+export const counting = Boolean(import.meta.env.PUBLIC_PLAUSIBLE_SCRIPT);
+export const reporting = Boolean(import.meta.env.PUBLIC_SENTRY_DSN);
