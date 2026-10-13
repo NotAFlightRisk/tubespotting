@@ -10,6 +10,7 @@
   --text: light-dark(#14181f, #e9eef6);
   --text-muted: light-dark(#4f5866, #a3aec0);
   --rule: light-dark(#dde2e9, #283346);
+  --control: light-dark(#7c8593, #6f7d93);
   --accent: light-dark(#0019a8, #9db1ff);
   --accent-ink: light-dark(#ffffff, #0e131b);
   --station-ink: light-dark(#0019a8, #c3d0ff);
@@ -48,12 +49,18 @@
   --panel-width: 380px;
 }
 
-:root[data-theme='light'] {
+:root[data-dark='false'] {
   color-scheme: light;
 }
 
-:root[data-theme='dark'] {
+:root[data-dark='true'] {
   color-scheme: dark;
+}
+
+:root[data-contrast='true'] {
+  --text-muted: light-dark(#2c333e, #d3dae5);
+  --rule: light-dark(#8a93a1, #5b687d);
+  --control: light-dark(#4f5866, #a3aec0);
 }
 
 *,
@@ -107,11 +114,19 @@ a {
   white-space: nowrap;
 }
 
-@media (prefers-reduced-motion: reduce) {
+:root[data-calm='true'] {
   *,
   ::before,
   ::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes rise {
+  from {
+    translate: 0 24px;
+    opacity: 0;
   }
 }

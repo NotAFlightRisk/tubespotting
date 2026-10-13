@@ -5,19 +5,19 @@
   import { MediaQuery } from 'svelte/reactivity';
   import About from '#lib/components/About.svelte';
   import Board from '#lib/components/Board.svelte';
+  import Grip from '#lib/components/Grip.svelte';
   import Icon from '#lib/components/Icon.svelte';
   import LineDetail from '#lib/components/LineDetail.svelte';
   import Search from '#lib/components/Search.svelte';
   import StationDetail from '#lib/components/StationDetail.svelte';
   import TrainDetail from '#lib/components/TrainDetail.svelte';
-  import type { Style } from '#lib/layout.js';
-  import { isLineId, isModeId, lineById, linesIn, type LineId, type ModeId } from '#lib/lines.js';
+  import { isLineId, lineById, linesIn, type LineId, type ModeId } from '#lib/lines.js';
   import { Live } from '#lib/live.svelte.js';
   import TubeMap, { type Tap } from '#lib/map/TubeMap.svelte';
   import { description, imageAlt, name, site, source, structuredData, title } from '#lib/meta.js';
   import { distance, project, stationById, stations, type Point } from '#lib/network.js';
-  import { swipeToClose } from '#lib/swipe.js';
-  import { Theme } from '#lib/theme.svelte.js';
+  import Settings from '#lib/settings/Settings.svelte';
+  import { load, looks, settings } from '#lib/settings/settings.svelte.js';
 
   type Selection =
     | { kind: 'line'; id: LineId }
@@ -27,21 +27,19 @@
     | null;
 
   const live = new Live();
-  const theme = new Theme();
   const wide = new MediaQuery('min-width: 960px');
   const STALE_SECONDS = 90;
   const NEARBY_KM = 3;
   const TUBE = linesIn(['tube']);
-  const SAVED = 'tubespotting:shown';
-  const SAVED_STYLE = 'tubespotting:style';
 
-  let modes = $state<ModeId[]>(['tube', 'elizabeth-line', 'dlr']);
-  let style = $state<Style>('schematic');
   let selection = $state<Selection>(null);
   let follow = $state(false);
   let searching = $state(false);
+  let configuring = $state(false);
+  let zoom = $state(0);
   let finder: HTMLButtonElement;
   let you = $state<Point | null>(null);
+  let locating = $state(false);
   let notice = $state('');
   let now = $state(Date.now());
   let panelHeight = $state(0);
@@ -49,7 +47,7 @@
   let map: TubeMap;
   let routed = false;
 
-  const shown = $derived(linesIn(modes));
+  const shown = $derived(linesIn(settings.modes));
   const focus = $derived({
     shown,
     line: selection?.kind === 'line' ? selection.id : null,
@@ -103,28 +101,19 @@
     return selection?.kind === 'train' ? live.fleet.trains.get(selection.key) : undefined;
   });
 
-  function save(key: string, value: string) {
-    try {
-      localStorage.setItem(key, value);
-    } catch {
-      // private browsing, so it's just forgotten next visit
-    }
-  }
-
   function toggle(mode: ModeId) {
-    modes = modes.includes(mode) ? modes.filter((m) => m !== mode) : [...modes, mode];
-    save(SAVED, JSON.stringify(modes));
+    const { modes } = settings;
+    settings.modes = modes.includes(mode) ? modes.filter((m) => m !== mode) : [...modes, mode];
   }
 
   function flipStyle() {
-    style = style === 'schematic' ? 'geographic' : 'schematic';
-    save(SAVED_STYLE, style);
+    settings.style = settings.style === 'schematic' ? 'geographic' : 'schematic';
   }
 
   // a link to a line or station that's switched off switches it on
   function reveal(line: LineId) {
     const { mode } = lineById(line)!;
-    if (!shown.has(line)) modes = [...modes, mode];
+    if (!shown.has(line)) settings.modes = [...settings.modes, mode];
   }
 
   function pickLine(id: LineId) {
@@ -164,8 +153,10 @@
 
   function locate() {
     if (!navigator.geolocation) return (notice = "This browser can't share your location");
+    locating = true;
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
+        locating = false;
         const here = (you = project(coords.longitude, coords.latitude));
         const [nearest] = stations
           .filter((s) => s.lines.some((line) => shown.has(line)))
@@ -176,10 +167,17 @@
         notice = `You're ${Math.round(km)} km from the nearest station`;
         map.flyTo([here, nearest], 0.06);
       },
-      () => (notice = "Couldn't get your location"),
+      () => {
+        locating = false;
+        notice = "Couldn't get your location";
+      },
       { maximumAge: 60_000, timeout: 10_000 }
     );
   }
+
+  $effect(() => {
+    live.every = settings.refresh * 1000;
+  });
 
   $effect(() => {
     if (!notice) return;
@@ -200,14 +198,7 @@
   afterNavigate(() => (routed = true));
 
   onMount(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(SAVED) ?? 'null');
-      if (Array.isArray(saved)) modes = saved.filter(isModeId);
-      const savedStyle = localStorage.getItem(SAVED_STYLE);
-      if (savedStyle === 'geographic' || savedStyle === 'schematic') style = savedStyle;
-    } catch {
-      // nothing saved, or nothing we can read
-    }
+    load();
     const line = page.url.searchParams.get('line');
     const station = stationById.get(page.url.searchParams.get('station') ?? '');
     if (line && isLineId(line)) pickLine(line);
@@ -232,7 +223,7 @@
   bind:innerHeight
   onkeydown={(event) => {
     const typing = event.target instanceof HTMLElement && event.target.closest('input, textarea');
-    if (event.key !== '/' || typing || searching) return;
+    if (event.key !== '/' || typing || searching || configuring || !settings.shortcuts) return;
     event.preventDefault();
     searching = true;
   }}
@@ -261,12 +252,14 @@
 <div class="app" class:open={selection !== null}>
   <TubeMap
     bind:this={map}
+    bind:level={zoom}
     {live}
     {focus}
     {follow}
     {inset}
-    {style}
-    dark={theme.dark}
+    style={settings.style}
+    dark={looks.dark}
+    calm={looks.calm}
     {you}
     label="Map of the London Underground with {running.length} trains moving live"
     {onpick}
@@ -296,11 +289,11 @@
         </button>
         <button
           type="button"
-          aria-label="Dark mode"
-          aria-pressed={theme.dark}
-          onclick={() => theme.flip()}
+          aria-label="Settings"
+          aria-haspopup="dialog"
+          onclick={() => (configuring = true)}
         >
-          <Icon name={theme.dark ? 'sun' : 'moon'} />
+          <Icon name="settings" />
         </button>
         <button
           type="button"
@@ -329,7 +322,7 @@
 
     {#if selection}
       <section class="sheet" class:full={about} aria-label="Details">
-        <div class="grip" aria-hidden="true" {@attach swipeToClose(close)}></div>
+        <Grip onclose={close} />
         {#if selection.kind !== 'about'}
           <button type="button" class="dismiss" aria-label="Back to all lines" onclick={close}>
             <Icon name={wide.current ? 'back' : 'close'} />
@@ -374,12 +367,12 @@
         {counts}
         waiting={!live.snapshot}
         {shown}
-        {modes}
+        modes={settings.modes}
         onpick={pickLine}
         ontoggle={toggle}
       />
       <footer class="links">
-        <button type="button" class="link primary" onclick={() => (selection = { kind: 'about' })}>
+        <button type="button" class="link" onclick={() => (selection = { kind: 'about' })}>
           <Icon name="info" size={16} />About
         </button>
         <a class="link" href={source} target="_blank" rel="noopener"
@@ -394,11 +387,11 @@
     <button
       type="button"
       aria-label="Tube map"
-      aria-pressed={style === 'schematic'}
-      title={style === 'schematic' ? 'Show the real geography' : 'Show the tube map'}
+      aria-pressed={settings.style === 'schematic'}
+      title={settings.style === 'schematic' ? 'Show the real geography' : 'Show the tube map'}
       onclick={flipStyle}
     >
-      <Icon name={style === 'schematic' ? 'map' : 'tube'} />
+      <Icon name={settings.style === 'schematic' ? 'map' : 'tube'} />
     </button>
     <button type="button" class="zoom" aria-label="Zoom in" onclick={() => map.zoomBy(1.6)}
       ><Icon name="plus" /></button
@@ -410,6 +403,16 @@
       ><Icon name="locate" /></button
     >
   </div>
+
+  {#if configuring}
+    <Settings
+      {zoom}
+      located={you !== null || locating}
+      onzoom={(level) => map.zoomTo(level)}
+      onlocate={(on) => (on ? locate() : (you = null))}
+      onclose={() => (configuring = false)}
+    />
+  {/if}
 </div>
 
 <style>
@@ -485,6 +488,7 @@
   .actions {
     display: flex;
     gap: var(--space-2);
+    margin-left: auto;
   }
 
   .actions button,
@@ -525,36 +529,6 @@
     background: var(--surface);
     box-shadow: var(--shadow);
     animation: rise 320ms var(--ease-out);
-  }
-
-  @keyframes rise {
-    from {
-      translate: 0 24px;
-      opacity: 0;
-    }
-  }
-
-  /* stays put while the sheet scrolls, so it can always be pulled down */
-  .grip {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    display: grid;
-    place-items: center;
-    box-sizing: content-box;
-    height: var(--space-5);
-    margin-inline: calc(-1 * var(--space-4));
-    background: var(--surface);
-    touch-action: none;
-    cursor: grab;
-
-    &::before {
-      content: '';
-      width: 36px;
-      height: 4px;
-      border-radius: 2px;
-      background: var(--rule);
-    }
   }
 
   .dismiss {
@@ -604,6 +578,17 @@
     font-size: 13px;
   }
 
+  /* fits the buttons beside the name at 320px */
+  @media (max-width: 359px) {
+    .brand {
+      padding-inline: var(--space-2);
+    }
+
+    .actions {
+      gap: var(--space-1);
+    }
+  }
+
   @media (max-width: 959px) {
     .app.open .controls {
       display: none;
@@ -632,7 +617,7 @@
       padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom));
       border-radius: 0;
 
-      .grip {
+      :global(.grip) {
         padding-top: env(safe-area-inset-top);
       }
     }
@@ -710,20 +695,6 @@
       &:hover {
         background: var(--surface-sunk);
       }
-
-      &.primary {
-        background: var(--accent);
-        box-shadow: none;
-        color: var(--accent-ink);
-
-        &:hover {
-          filter: brightness(1.15);
-        }
-      }
-    }
-
-    .grip {
-      display: none;
     }
 
     .sheet {

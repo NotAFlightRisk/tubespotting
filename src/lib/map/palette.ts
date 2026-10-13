@@ -27,9 +27,11 @@ export const tint = (rgb: string) => towards(rgb, brightness(rgb) > 140 ? 0 : 25
 export const edge = (rgb: string, night: boolean) => towards(rgb, night ? 255 : 0, EDGE);
 
 /** Tokens hold light-dark(), which only resolves once it lands on a real property */
-export function readPalette(root: HTMLElement): Palette {
+export function readPalette(root: HTMLElement, night: boolean): Palette {
   const probe = document.createElement('span');
   probe.hidden = true;
+  // the page's own scheme might not have caught up yet
+  probe.style.colorScheme = night ? 'dark' : 'light';
   root.append(probe);
   const resolve = (colour: string) => {
     probe.style.color = colour;
@@ -39,10 +41,8 @@ export function readPalette(root: HTMLElement): Palette {
   const perLine = (colour: (line: Line) => string) =>
     Object.fromEntries(LINES.map((line) => [line.id, colour(line)])) as Record<LineId, string>;
   const lines = perLine(({ id, colour }) => (NIGHT.has(id) ? read(`--${id}`) : resolve(colour)));
-  const paper = read('--paper');
-  const night = brightness(paper) < 128;
   const palette: Palette = {
-    paper,
+    paper: read('--paper'),
     river: read('--river'),
     stationInk: read('--station-ink'),
     ring: read('--ring'),
