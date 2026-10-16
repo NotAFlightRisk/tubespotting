@@ -11,6 +11,7 @@
   import Search from '#lib/components/Search.svelte';
   import StationDetail from '#lib/components/StationDetail.svelte';
   import TrainDetail from '#lib/components/TrainDetail.svelte';
+  import { count, t } from '#lib/i18n/i18n.svelte.js';
   import { isLineId, lineById, linesIn, type LineId, type ModeId } from '#lib/lines.js';
   import { Live } from '#lib/live.svelte.js';
   import TubeMap, { type Tap } from '#lib/map/TubeMap.svelte';
@@ -84,16 +85,19 @@
   });
   const keys = $derived(new Map(running.map((train) => [train.reading, train.key])));
   const age = $derived(live.snapshot ? (now - live.snapshot.at) / 1000 : Infinity);
-  const freshness = $derived(
+  const feed = $derived(
     !live.snapshot
       ? live.failing
-        ? "Can't reach TfL"
-        : 'Connecting'
+        ? 'unreachable'
+        : 'connecting'
       : age > STALE_SECONDS
-        ? `${Math.round(age / 60)} min behind`
+        ? 'behind'
         : live.failing || live.snapshot.stale
-          ? 'Catching up'
-          : 'Live'
+          ? 'catchingUp'
+          : 'live'
+  );
+  const freshness = $derived(
+    feed === 'behind' ? t.feed.behind(t.minutes(Math.round(age / 60))) : t.feed[feed]
   );
   const about = $derived(selection?.kind === 'about');
   const tracked = $derived.by(() => {
@@ -152,7 +156,7 @@
   }
 
   function locate() {
-    if (!navigator.geolocation) return (notice = "This browser can't share your location");
+    if (!navigator.geolocation) return (notice = t.notice.unsupported);
     locating = true;
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
@@ -161,15 +165,15 @@
         const [nearest] = stations
           .filter((s) => s.lines.some((line) => shown.has(line)))
           .sort((a, b) => distance(here, a) - distance(here, b));
-        if (!nearest) return (notice = 'Switch some lines on to find your nearest station');
+        if (!nearest) return (notice = t.notice.noLines);
         const km = distance(here, nearest) / 1000;
         if (km < NEARBY_KM) return pickStation(nearest.index);
-        notice = `You're ${Math.round(km)} km from the nearest station`;
+        notice = t.notice.far(Math.round(km));
         map.flyTo([here, nearest], 0.06);
       },
       () => {
         locating = false;
-        notice = "Couldn't get your location";
+        notice = t.notice.failed;
       },
       { maximumAge: 60_000, timeout: 10_000 }
     );
@@ -230,7 +234,7 @@
 />
 
 <svelte:head>
-  <title>{title}</title>
+  <title>{name} | {t.title}</title>
   <meta name="description" content={description} />
   <meta name="robots" content="max-image-preview:large" />
   <link rel="canonical" href={site} />
@@ -261,7 +265,7 @@
     dark={looks.dark}
     calm={looks.calm}
     {you}
-    label="Map of the London Underground with {running.length} trains moving live"
+    label={count(t.map.label, running.length)}
     {onpick}
     onwander={() => (follow = false)}
   />
@@ -270,17 +274,18 @@
     <header class="masthead">
       <div class="brand">
         <h1>tubespotting</h1>
-        <p class="pill" class:live={freshness === 'Live'}>
+        <p class="pill" class:live={feed === 'live'}>
           <span class="beat" aria-hidden="true"></span>
-          {#if live.snapshot}<span>{running.length} trains</span><span aria-hidden="true">·</span
-            >{/if}
-          <span role="status">{freshness}</span>
+          <span class="words">
+            {#if live.snapshot}<span>{count(t.trains, running.length)}</span>{/if}
+            <span role="status">{freshness}</span>
+          </span>
         </p>
       </div>
       <div class="actions">
         <button
           type="button"
-          aria-label="Search"
+          aria-label={t.page.search}
           aria-expanded={searching}
           bind:this={finder}
           onclick={() => (searching = !searching)}
@@ -289,7 +294,7 @@
         </button>
         <button
           type="button"
-          aria-label="Settings"
+          aria-label={t.page.settings}
           aria-haspopup="dialog"
           onclick={() => (configuring = true)}
         >
@@ -298,7 +303,7 @@
         <button
           type="button"
           class="about"
-          aria-label="About this map"
+          aria-label={t.page.aboutMap}
           aria-expanded={about}
           onclick={() => (about ? close() : (selection = { kind: 'about' }))}
         >
@@ -321,12 +326,12 @@
     </header>
 
     {#if selection}
-      <section class="sheet" class:full={about} aria-label="Details">
+      <section class="sheet" class:full={about} aria-label={t.page.details}>
         <Grip onclose={close} />
         {#if selection.kind !== 'about'}
-          <button type="button" class="dismiss" aria-label="Back to all lines" onclick={close}>
+          <button type="button" class="dismiss" aria-label={t.page.back} onclick={close}>
             <Icon name={wide.current ? 'back' : 'close'} />
-            <span>All lines</span>
+            <span>{t.page.allLines}</span>
           </button>
         {/if}
         {#if selection.kind === 'line'}
@@ -373,7 +378,7 @@
       />
       <footer class="links">
         <button type="button" class="link" onclick={() => (selection = { kind: 'about' })}>
-          <Icon name="info" size={16} />About
+          <Icon name="info" size={16} />{t.about}
         </button>
         <a class="link" href={source} target="_blank" rel="noopener"
           ><Icon name="github" size={16} />GitHub</a
@@ -386,21 +391,23 @@
     {#if notice}<p class="notice" role="status">{notice}</p>{/if}
     <button
       type="button"
-      aria-label="Tube map"
+      aria-label={t.page.style}
       aria-pressed={settings.style === 'schematic'}
-      title={settings.style === 'schematic' ? 'Show the real geography' : 'Show the tube map'}
+      title={settings.style === 'schematic' ? t.page.toGeographic : t.page.toSchematic}
       onclick={flipStyle}
     >
       <Icon name={settings.style === 'schematic' ? 'map' : 'tube'} />
     </button>
-    <button type="button" class="zoom" aria-label="Zoom in" onclick={() => map.zoomBy(1.6)}
+    <button type="button" class="zoom" aria-label={t.page.zoomIn} onclick={() => map.zoomBy(1.6)}
       ><Icon name="plus" /></button
     >
-    <button type="button" class="zoom" aria-label="Zoom out" onclick={() => map.zoomBy(1 / 1.6)}
-      ><Icon name="minus" /></button
+    <button
+      type="button"
+      class="zoom"
+      aria-label={t.page.zoomOut}
+      onclick={() => map.zoomBy(1 / 1.6)}><Icon name="minus" /></button
     >
-    <button type="button" aria-label="Show where I am" onclick={locate}
-      ><Icon name="locate" /></button
+    <button type="button" aria-label={t.page.locate} onclick={locate}><Icon name="locate" /></button
     >
   </div>
 
@@ -438,7 +445,11 @@
     }
   }
 
+  /* shrinks to keep beside the buttons when a language runs long */
   .brand {
+    flex: 1 1 0;
+    min-width: min-content;
+    max-width: max-content;
     display: grid;
     gap: 2px;
     padding: var(--space-2) var(--space-3);
@@ -464,6 +475,7 @@
     font-variant-numeric: tabular-nums;
 
     .beat {
+      flex: none;
       width: 7px;
       height: 7px;
       border-radius: 50%;
@@ -473,6 +485,23 @@
     &.live .beat {
       background: var(--good);
       animation: beat 2.4s var(--ease-out) infinite;
+    }
+  }
+
+  /* each part leads with a dot, clipped off when it wraps to the start of a line */
+  .words {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 16px;
+    overflow-x: clip;
+
+    > ::before {
+      content: '·';
+      content: '·' / '';
+      display: inline-block;
+      width: 16px;
+      margin-left: -16px;
+      text-align: center;
     }
   }
 

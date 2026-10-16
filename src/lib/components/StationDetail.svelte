@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { clock, t } from '#lib/i18n/i18n.svelte.js';
   import { lineById, type LineId } from '#lib/lines.js';
   import { stations, type Station } from '#lib/network.js';
   import { finishesAt, minutes } from '#lib/status.js';
@@ -16,9 +17,7 @@
   let { station, shown, snapshot, now, keyOf, onpicktrain }: Props = $props();
 
   const PER_PLATFORM = 4;
-  const time = new Intl.DateTimeFormat('en-GB', { timeStyle: 'medium', timeZone: 'Europe/London' });
-
-  const clock = $derived(time.format(now));
+  const time = $derived(clock(now));
 
   // a hub's stations that share a name (both Paddingtons, say) share a board
   const here = $derived(
@@ -50,7 +49,10 @@
           .slice(0, 1)
           .map(([, eta, platform]) => ({
             train,
-            platform: (snapshot.platforms[platform] || 'Platform').replace(/\s+-\s+/, ' · '),
+            platform: (snapshot.platforms[platform] || t.station.platform).replace(
+              /\s+-\s+/,
+              ' · '
+            ),
             due: (snapshot.at + eta * 1000 - now) / 1000
           }))
       );
@@ -81,7 +83,7 @@
 
 <header>
   <h2>{station.name}</h2>
-  <ul class="lines" aria-label="Lines">
+  <ul class="lines" aria-label={t.station.lines}>
     {#each lines as id (id)}
       {@const line = lineById(id)!}
       <li style:--line={id === 'northern' ? 'var(--northern)' : line.colour}>{line.name}</li>
@@ -90,17 +92,17 @@
 </header>
 
 {#if !snapshot}
-  <p class="quiet">Waiting for TfL…</p>
+  <p class="quiet">{t.waiting}</p>
 {:else if !platforms.length && arriving !== null}
   <p class="quiet">
-    No departures listed, only trains finishing here. The next one arrives
-    {arriving < 30 ? 'now' : `in ${minutes(arriving)}`}.
+    {t.station.terminating}
+    {arriving < 30 ? t.station.arrivingNow : t.station.arrivingIn(minutes(arriving))}
   </p>
 {:else if !platforms.length}
-  <p class="quiet">No trains due here at the moment.</p>
+  <p class="quiet">{t.station.none}</p>
 {:else}
   {#each platforms as platform (`${platform.line.id}${platform.name}`)}
-    <section class="platform" aria-label="{platform.line.name} line, {platform.name}">
+    <section class="platform" aria-label={t.station.platformOf(platform.line.name, platform.name)}>
       <h3>
         <span
           class="swatch"
@@ -114,12 +116,12 @@
           <li>
             <button type="button" disabled={!key} onclick={() => key && onpicktrain(key)}>
               <span class="order">{i + 1}</span>
-              <span class="to">{row.train.to || 'Check front of train'}</span>
+              <span class="to">{row.train.to || t.checkFront}</span>
               <span class="due">{minutes(row.due)}</span>
             </button>
           </li>
         {/each}
-        <li class="clock" aria-hidden="true">{clock}</li>
+        <li class="clock" aria-hidden="true">{time}</li>
       </ol>
     </section>
   {/each}

@@ -1,7 +1,9 @@
+import en from './i18n/messages/en.js';
+
 export const site = 'https://tubespotting.peng.ly';
 export const source = 'https://github.com/NotAFlightRisk/tubespotting';
 export const name = 'Tube Spotting';
-export const title = `${name} | Live London Underground map`;
+export const title = `${name} | ${en.title}`;
 export const description =
   'Live London Underground map showing real time train locations across the TfL network. Tap a station for its next trains.';
 export const imageAlt =

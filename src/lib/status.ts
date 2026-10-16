@@ -1,5 +1,6 @@
 import { stations } from './network.js';
 import type { Tracked } from './fleet.js';
+import { t } from './i18n/i18n.svelte.js';
 import { locate } from './motion.js';
 import type { TrainReading } from './types.js';
 
@@ -13,15 +14,15 @@ export const tone = (severity: number): Tone =>
   GOOD.has(severity) ? 'good' : severity === 20 ? 'closed' : BAD.has(severity) ? 'bad' : 'warn';
 
 export const minutes = (seconds: number) =>
-  seconds < 30 ? 'Due' : `${Math.max(1, Math.round(seconds / 60))} min`;
+  seconds < 30 ? t.due : t.minutes(Math.max(1, Math.round(seconds / 60)));
 
 /** Where the map has the train right now, in words, so the sheet and the map agree */
 export function whereIs({ legs, reading }: Tracked, now: number): string {
   const name = (index: number) => stations[index].name;
   const placed = locate(reading.line, legs, reading.stops[0][0], now / 1000);
   const [from, to] = placed.between;
-  if (placed.at !== null || from === to) return `At ${name(placed.at ?? from)}`;
-  return placed.f > 0.8 ? `Approaching ${name(to)}` : `Between ${name(from)} and ${name(to)}`;
+  if (placed.at !== null || from === to) return t.where.at(name(placed.at ?? from));
+  return placed.f > 0.8 ? t.where.approaching(name(to)) : t.where.between(name(from), name(to));
 }
 
 /** Coming in to finish at one of these stations, so not a train you can catch there */
@@ -36,5 +37,3 @@ export function nextCall({ legs, reading }: Tracked, now: number) {
     ? { station: leg.to, seconds: leg.arrive - t }
     : { station: reading.stops.at(-1)![0], seconds: 0 };
 }
-
-export const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;

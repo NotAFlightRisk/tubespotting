@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '#lib/i18n/i18n.svelte.js';
   import { LINES, type LineId } from '#lib/lines.js';
   import { stations, type Station } from '#lib/network.js';
   import Icon from './Icon.svelte';
@@ -34,8 +35,8 @@
       ...lines.map((line) => ({
         kind: 'line' as const,
         id: line.id,
-        label: `${line.name} line`,
-        detail: 'Line'
+        label: t.search.line(line.name),
+        detail: t.search.kind
       })),
       ...[...places.values()].map((members) => ({
         kind: 'station' as const,
@@ -91,8 +92,8 @@
     <!-- svelte-ignore a11y_autofocus -->
     <input
       type="search"
-      placeholder="Find a station or line"
-      aria-label="Find a station or line"
+      placeholder={t.search.find}
+      aria-label={t.search.find}
       role="combobox"
       aria-expanded={results.length > 0}
       aria-controls="search-results"
@@ -103,12 +104,12 @@
       oninput={() => (active = 0)}
       {onkeydown}
     />
-    <button type="button" class="close" aria-label="Close search" onclick={onclose}>
+    <button type="button" class="close" aria-label={t.search.close} onclick={onclose}>
       <Icon name="close" />
     </button>
   </div>
   {#if results.length}
-    <ul id="search-results" role="listbox" aria-label="Matches">
+    <ul id="search-results" role="listbox" aria-label={t.search.matches}>
       {#each results as result, i (result.kind + result.id)}
         <li
           id="result-{i}"
@@ -124,7 +125,7 @@
       {/each}
     </ul>
   {:else if query.trim()}
-    <p class="empty">Nothing on the Underground called that.</p>
+    <p class="empty">{t.search.nothing}</p>
   {/if}
 </div>
 

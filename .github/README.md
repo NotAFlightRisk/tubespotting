@@ -38,7 +38,7 @@ Just open [tubespotting.peng.ly](https://tubespotting.peng.ly/) and drag/ pinch 
 - The locate button opens your nearest station. Your location never leaves your device
 - Additional lines like the Elizabeth line and Overground can be added to the map from the line list
 - The map button switches between the real geography and a tube map laid out like TfL's own
-- Settings has dark mode, the map layout and zoom, which lines show, how often it updates, plus accessibility and privacy options
+- Settings has dark mode, the language (yours, until you pick another), the map layout and zoom, which lines show, how often it updates, plus accessibility and privacy options
 - You can append a station or line to the URL to share a link, e.g. `?line=victoria` or `?station=940GZZLUOXC`
 
 ---
