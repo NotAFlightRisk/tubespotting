@@ -14,7 +14,13 @@ afterEach(() => saved.clear());
 
 describe('saved settings', () => {
   it('reads back what was written', () => {
-    const settings = { ...defaults(), dark: true, modes: ['dlr' as const], refresh: 30 };
+    const settings = {
+      ...defaults(),
+      dark: true,
+      language: 'fr' as const,
+      modes: ['dlr' as const],
+      refresh: 30
+    };
     write(settings);
     expect(read()).toEqual(settings);
   });
@@ -27,7 +33,10 @@ describe('saved settings', () => {
   });
 
   it('falls back to the default for anything it cannot use', () => {
-    saved.set(KEY, JSON.stringify({ style: 'sideways', modes: ['tube', 'boat'], errors: false }));
+    saved.set(
+      KEY,
+      JSON.stringify({ style: 'sideways', language: 'xx', modes: ['tube', 'boat'], errors: false })
+    );
     expect(read()).toEqual({ ...defaults(), errors: false });
     saved.set(KEY, '{not json');
     expect(read()).toEqual(defaults());

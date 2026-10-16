@@ -2,14 +2,16 @@
   import { onMount } from 'svelte';
   import Close from '#lib/components/Close.svelte';
   import Grip from '#lib/components/Grip.svelte';
+  import { t } from '#lib/i18n/i18n.svelte.js';
+  import { LOCALES } from '#lib/i18n/locales.js';
   import { MODES } from '#lib/lines.js';
   import { counting, reporting } from '#lib/meta.js';
   import Chips from './Chips.svelte';
   import Row from './Row.svelte';
-  import { LANGUAGES, REFRESH } from './saved.js';
+  import { REFRESH } from './saved.js';
   import Segmented from './Segmented.svelte';
   import Select from './Select.svelte';
-  import { clear, looks, settings } from './settings.svelte.js';
+  import { clear, language, looks, settings } from './settings.svelte.js';
   import Slider from './Slider.svelte';
   import Switch from './Switch.svelte';
 
@@ -24,10 +26,9 @@
   let { zoom, located, onzoom, onlocate, onclose }: Props = $props();
 
   const modes = MODES.map((mode) => ({ value: mode.id, label: mode.name }));
-  const refreshes = REFRESH.map((s) => ({
-    value: s,
-    label: s < 60 ? `${s} sec` : `${s / 60} min`
-  }));
+  const refreshes = $derived(
+    REFRESH.map((s) => ({ value: s, label: s < 60 ? t.seconds(s) : t.minutes(s / 60) }))
+  );
 
   let dialog: HTMLDialogElement;
   // so a drag that ends on the backdrop doesn't close it
@@ -52,92 +53,62 @@
   <div class="sheet">
     <Grip onclose={() => dialog.close()} />
     <header>
-      <h2 id="settings-title">Settings</h2>
+      <h2 id="settings-title">{t.settings.title}</h2>
       <Close onclick={() => dialog.close()} />
     </header>
 
-    <h3>General</h3>
+    <h3>{t.settings.general}</h3>
     <div class="card">
       <Segmented
-        label="Theme"
-        hint="Matches your device until you pick one"
+        {...t.settings.theme}
         options={[
-          { value: false, label: 'Light', icon: 'sun' },
-          { value: true, label: 'Dark', icon: 'moon' }
+          { value: false, label: t.settings.light, icon: 'sun' },
+          { value: true, label: t.settings.dark, icon: 'moon' }
         ]}
         bind:value={looks.dark}
       />
-      <Select label="Language" hint="More languages are on the way" bind:value={settings.language}>
-        {#each Object.entries(LANGUAGES) as [code, name] (code)}
-          <option value={code} lang={code}>{name}</option>
+      <Select {...t.settings.language} bind:value={language.current}>
+        {#each Object.entries(LOCALES) as [code, { name, tag }] (code)}
+          <option value={code} lang={tag}>{name}</option>
         {/each}
       </Select>
     </div>
 
-    <h3>Map</h3>
+    <h3>{t.settings.map}</h3>
     <div class="card">
       <Segmented
-        label="Layout"
+        {...t.settings.layout}
         options={[
-          { value: 'schematic', label: 'Tube map', icon: 'tube' },
-          { value: 'geographic', label: 'Geographic', icon: 'map' }
+          { value: 'schematic', label: t.settings.schematic, icon: 'tube' },
+          { value: 'geographic', label: t.settings.geographic, icon: 'map' }
         ]}
         bind:value={settings.style}
       />
       <Slider
-        label="Zoom"
+        {...t.settings.zoom}
         bind:value={() => Math.round(zoom * 100), (percent) => onzoom(percent / 100)}
       />
-      <Chips label="Lines on the map" options={modes} bind:value={settings.modes} />
-      <Switch
-        label="Show where I am"
-        hint="Your location never leaves your device"
-        bind:checked={() => located, onlocate}
-      />
-      <Segmented
-        label="Update every"
-        hint="Less often uses less data"
-        options={refreshes}
-        bind:value={settings.refresh}
-      />
+      <Chips {...t.settings.modes} options={modes} bind:value={settings.modes} />
+      <Switch {...t.settings.locate} bind:checked={() => located, onlocate} />
+      <Segmented {...t.settings.refresh} options={refreshes} bind:value={settings.refresh} />
     </div>
 
-    <h3>Accessibility</h3>
+    <h3>{t.settings.accessibility}</h3>
     <div class="card">
-      <Switch
-        label="Reduce motion"
-        hint="Fewer animations, and no gliding map"
-        bind:checked={looks.calm}
-      />
-      <Switch
-        label="More contrast"
-        hint="Stronger text and borders"
-        bind:checked={looks.contrast}
-      />
-      <Switch
-        label="Keyboard shortcuts"
-        hint="Press / to search"
-        bind:checked={settings.shortcuts}
-      />
+      <Switch {...t.settings.calm} bind:checked={looks.calm} />
+      <Switch {...t.settings.contrast} bind:checked={looks.contrast} />
+      <Switch {...t.settings.shortcuts} bind:checked={settings.shortcuts} />
     </div>
 
-    <h3>Privacy</h3>
+    <h3>{t.settings.privacy}</h3>
     <div class="card">
       {#if counting}
-        <Switch
-          label="Usage analytics"
-          hint="Plausible counts visits, with no cookies or personal data"
-          bind:checked={settings.analytics}
-        />
+        <Switch {...t.settings.analytics} bind:checked={settings.analytics} />
       {/if}
       {#if reporting}
-        <Switch
-          label="Error reports"
-          hint="A redacted report when something breaks, so we can fix it"
-          bind:checked={settings.errors}
-        />
+        <Switch {...t.settings.errors} bind:checked={settings.errors} />
       {/if}
-      <Row label="Clear all data" hint="Resets everything saved in this browser">
+      <Row {...t.settings.clear}>
         {#snippet children(tie)}
           <button
             type="button"
@@ -148,12 +119,12 @@
               cleared = true;
             }}
           >
-            {cleared ? 'Cleared' : 'Clear'}
+            {cleared ? t.settings.cleared : t.settings.clearButton}
           </button>
         {/snippet}
       </Row>
     </div>
-    <p class="visually-hidden" role="status">{cleared ? 'Everything has been cleared' : ''}</p>
+    <p class="visually-hidden" role="status">{cleared ? t.settings.clearedAll : ''}</p>
   </div>
 </dialog>
 

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Tracked } from '#lib/fleet.js';
+  import { t } from '#lib/i18n/i18n.svelte.js';
   import { lineById } from '#lib/lines.js';
   import { stations } from '#lib/network.js';
   import { minutes, whereIs } from '#lib/status.js';
@@ -28,8 +29,8 @@
 </script>
 
 {#if !train || !line || train.gone}
-  <h2>That train's gone</h2>
-  <p class="quiet">TfL has stopped reporting it, so it's probably reached the end of the line.</p>
+  <h2>{t.train.gone}</h2>
+  <p class="quiet">{t.train.goneWhy}</p>
 {:else}
   <div
     class="train"
@@ -39,17 +40,17 @@
     <header>
       <h2>
         <span class="line">{line.name}</span>
-        {train.reading.to ? `to ${train.reading.to}` : 'train, check the front for where to'}
+        {train.reading.to ? t.train.to(train.reading.to) : t.train.unknown}
       </h2>
       <p class="where">{whereIs(train, now)}</p>
     </header>
 
     <button type="button" class="follow" aria-pressed={follow} onclick={() => onfollow(!follow)}>
       <Icon name="follow" size={18} />
-      {follow ? 'Following this train' : 'Follow this train'}
+      {follow ? t.train.following : t.train.follow}
     </button>
 
-    <ol class="stops" aria-label="Next stops">
+    <ol class="stops" aria-label={t.train.stops}>
       {#each upcoming as stop (stop.station.index)}
         <li>
           <button type="button" onclick={() => onpickstation(stop.station.index)}>

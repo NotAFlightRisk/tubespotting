@@ -1,18 +1,19 @@
 <script lang="ts">
   import { page } from '$app/state';
+  import { t } from '#lib/i18n/i18n.svelte.js';
 
   const lost = $derived(page.status === 404);
 </script>
 
 <svelte:head>
-  <title>{lost ? 'Not on the map' : 'Something went wrong'} · tubespotting</title>
+  <title>{lost ? t.error.lost : t.error.broken} · tubespotting</title>
 </svelte:head>
 
 <main class="lost">
-  <h1>{lost ? 'No trains call here' : 'Something went wrong'}</h1>
-  <p class="board">{page.status} · Not in service</p>
-  <p>{lost ? "That page isn't on the map." : page.error?.message}</p>
-  <a href="/">Back to the live map</a>
+  <h1>{lost ? t.error.noTrains : t.error.broken}</h1>
+  <p class="board">{page.status} · {t.error.outOfService}</p>
+  <p>{lost ? t.error.missing : page.error?.message}</p>
+  <a href="/">{t.error.back}</a>
 </main>
 
 <style>

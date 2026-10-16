@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { count, list, t } from '#lib/i18n/i18n.svelte.js';
   import { LINES, MODES, type LineId, type ModeId } from '#lib/lines.js';
-  import { count, tone } from '#lib/status.js';
+  import { tone } from '#lib/status.js';
   import type { LineStatus } from '#lib/types.js';
   import Icon from './Icon.svelte';
 
@@ -16,25 +17,23 @@
 
   let { status, counts, waiting, shown, modes, onpick, ontoggle }: Props = $props();
 
-  const list = new Intl.ListFormat('en-GB');
-
   let open = $state(false);
 
   const byLine = $derived(new Map(status.map((s) => [s.id, s])));
   const showing = $derived(MODES.filter((mode) => modes.includes(mode.id)));
   const summary = $derived(
     showing.length === 0
-      ? 'No lines'
+      ? t.board.none
       : showing.length === 1
-        ? `${showing[0].name} only`
+        ? t.board.only(showing[0].name)
         : showing.length === MODES.length
-          ? 'Every line'
-          : list.format(showing.map((mode) => mode.name))
+          ? t.board.every
+          : list(showing.map((mode) => mode.name))
   );
 </script>
 
-<nav class="board" aria-label="Lines">
-  <h2 class="visually-hidden">Lines</h2>
+<nav class="board" aria-label={t.board.lines}>
+  <h2 class="visually-hidden">{t.board.lines}</h2>
   <ul>
     {#each LINES.filter((line) => shown.has(line.id)) as line (line.id)}
       {@const state = byLine.get(line.id)}
@@ -50,9 +49,9 @@
           <span class="name">{line.name}</span>
           <span class="state {feeling}">
             <span class="dot" aria-hidden="true"></span>
-            {state?.status ?? 'Checking'}
+            {state?.status ?? t.board.checking}
           </span>
-          <span class="count">{waiting ? '' : count(counts.get(line.id) ?? 0, 'train')}</span>
+          <span class="count">{waiting ? '' : count(t.trains, counts.get(line.id) ?? 0)}</span>
         </button>
       </li>
     {/each}
@@ -65,7 +64,7 @@
       aria-controls="line-filters"
       onclick={() => (open = !open)}
     >
-      <span class="label">On the map</span>
+      <span class="label">{t.board.onMap}</span>
       <span class="roundels" aria-hidden="true">
         {#each MODES as mode (mode.id)}
           <svg

@@ -1,3 +1,4 @@
+import { isLocale, type Locale } from '#lib/i18n/locales.js';
 import type { Style } from '#lib/layout.js';
 import { isModeId, type ModeId } from '#lib/lines.js';
 
@@ -10,17 +11,6 @@ export const LOOKS = {
 };
 export type Look = keyof typeof LOOKS;
 
-/** Placeholders until there are translations */
-export const LANGUAGES = {
-  en: 'English',
-  fr: 'Français',
-  es: 'Español',
-  de: 'Deutsch',
-  it: 'Italiano',
-  pt: 'Português',
-  pl: 'Polski',
-  zh: '中文'
-};
 /** Seconds between live updates */
 export const REFRESH = [10, 30, 60];
 
@@ -31,7 +21,7 @@ export const defaults = () => ({
   dark: null as Picked,
   calm: null as Picked,
   contrast: null as Picked,
-  language: 'en',
+  language: null as Locale | null,
   style: 'schematic' as Style,
   modes: ['tube', 'elizabeth-line', 'dlr'] as ModeId[],
   refresh: 10,
@@ -48,7 +38,7 @@ const VALID: Record<keyof Settings, (value: unknown) => boolean> = {
   dark: pick,
   calm: pick,
   contrast: pick,
-  language: (value) => Object.hasOwn(LANGUAGES, String(value)),
+  language: (value) => value === null || isLocale(value),
   style: (value) => value === 'schematic' || value === 'geographic',
   modes: (value) => Array.isArray(value) && value.every(isModeId),
   refresh: (value) => REFRESH.includes(value as number),

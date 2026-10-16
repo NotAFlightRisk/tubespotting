@@ -3,6 +3,7 @@
   import 'd3-transition';
   import { zoom, zoomIdentity, type ZoomBehavior, type ZoomTransform } from 'd3-zoom';
   import { onMount } from 'svelte';
+  import { t } from '#lib/i18n/i18n.svelte.js';
   import { between, layouts, type Layout, type Style } from '#lib/layout.js';
   import type { Live } from '#lib/live.svelte.js';
   import { distance, middle, type Point } from '#lib/network.js';
@@ -382,8 +383,7 @@
   {onkeydown}
 >
   <p id="map-keys" class="visually-hidden">
-    Arrow keys move the map, plus and minus zoom. The line list, search and station boards have
-    everything the map shows.
+    {t.map.keys}
   </p>
   <canvas bind:this={base} aria-hidden="true"></canvas>
   <canvas

@@ -10,6 +10,7 @@ Bug reports, typo fixes and whole features are all welcome. By joining in, you a
 - 🐛 **Report a bug** - open a [bug report](https://github.com/NotAFlightRisk/tubespotting/issues/new?template=bug_report.yml)
 - 💡 **Suggest a feature** - open a [feature request](https://github.com/NotAFlightRisk/tubespotting/issues/new?template=feature_request.yml)
 - 📖 **Improve the docs** - typos, unclear wording and missing examples are all fair game
+- 🌍 **Translate** - fix a wording that reads oddly, or add a language, see [Translations](#translations)
 - 🔧 **Submit a fix** - see below
 - 🔒 **Report a vulnerability** - please _don't_ open a public issue, see [SECURITY.md](./SECURITY.md)
 
@@ -61,6 +62,14 @@ Types are `feat`, `fix`, `docs`, `refactor`, `test`, `perf`, `build`, `ci` and `
 - Tests pass, and new behaviour has new tests
 - Docs updated if public behaviour changed
 - No unrelated reformatting mixed into the diff
+
+---
+
+### Translations
+
+Everything the app says lives in [`src/lib/i18n/messages`](../src/lib/i18n/messages), one file per language, with `en.ts` as the source the rest follow. Line, station and platform names, and TfL's own status text, stay as TfL writes them.
+
+To add a language, copy `en.ts` to `<code>.ts`, translate it, and add the language to `LOCALES` in [`src/lib/i18n/locales.ts`](../src/lib/i18n/locales.ts). Counts take the plural forms your language needs (`one`, `few`, `many`, `other`...), with `#` for the number. `npm run check` and `npm test` will catch a missing key, form or placeholder.
 
 ---
 

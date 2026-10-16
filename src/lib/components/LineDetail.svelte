@@ -1,8 +1,9 @@
 <script lang="ts">
   import type { Tracked } from '#lib/fleet.js';
+  import { count, t } from '#lib/i18n/i18n.svelte.js';
   import type { Line } from '#lib/lines.js';
   import { callsApart, stations } from '#lib/network.js';
-  import { count, minutes, nextCall, tone, whereIs } from '#lib/status.js';
+  import { minutes, nextCall, tone, whereIs } from '#lib/status.js';
   import type { LineStatus } from '#lib/types.js';
 
   interface Props {
@@ -22,7 +23,7 @@
   const directions = $derived.by(() => {
     const byDestination = new Map<string, Tracked[]>();
     for (const train of trains) {
-      const to = train.reading.to || 'Check front of train';
+      const to = train.reading.to || t.checkFront;
       byDestination.set(to, [...(byDestination.get(to) ?? []), train]);
     }
     const left = (train: Tracked) => {
@@ -41,13 +42,15 @@
   style:--ink={line.id === 'northern' ? 'var(--paper)' : line.ink}
 >
   <h2>{line.name}</h2>
-  <p class="status {feeling}">{status?.status ?? 'Checking the status'}</p>
+  <p class="status {feeling}">{status?.status ?? t.line.checking}</p>
   {#if status?.reason}<p class="reason">{status.reason}</p>{/if}
 
-  <p class="total">{waiting ? 'Waiting for TfL…' : `${count(trains.length, 'train')} running`}</p>
+  <p class="total">{waiting ? t.waiting : count(t.line.running, trains.length)}</p>
   {#each directions as direction (direction.to)}
-    <section aria-label="Trains to {direction.to}">
-      <h3>To {direction.to} <span>· {count(direction.trains.length, 'train')}</span></h3>
+    <section aria-label={t.line.trainsTo(direction.to)}>
+      <h3>
+        {t.line.to(direction.to)} <span>· {count(t.trains, direction.trains.length)}</span>
+      </h3>
       <ol class="strip">
         {#each direction.trains as train (train.key)}
           {@const next = nextCall(train, now)}
