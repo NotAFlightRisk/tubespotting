@@ -1,4 +1,4 @@
-name: 🏷️ Label
+name: 🔖 Label
 
 on:
   pull_request:
