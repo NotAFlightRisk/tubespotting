@@ -296,7 +296,7 @@
     }
 
     .sections {
-      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       align-items: start;
       column-gap: var(--space-6);
     }
