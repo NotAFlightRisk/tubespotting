@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { afterNavigate, replaceState } from '$app/navigation';
+  import { afterNavigate, goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { MediaQuery } from 'svelte/reactivity';
   import About from '#lib/components/About.svelte';
   import Board from '#lib/components/Board.svelte';
@@ -46,7 +46,8 @@
   let panelHeight = $state(0);
   let innerHeight = $state(800);
   let map: TubeMap;
-  let routed = false;
+  let routed = $state(false);
+  let sheeted = false;
 
   const shown = $derived(linesIn(settings.modes));
   const focus = $derived({
@@ -155,6 +156,17 @@
     follow = false;
   }
 
+  function openFromAddress() {
+    const params = new URLSearchParams(location.search);
+    const line = params.get('line');
+    const station = stationById.get(params.get('station') ?? '');
+    if (line && isLineId(line)) pickLine(line);
+    else if (station) {
+      reveal(station.lines[0]);
+      pickStation(station.index);
+    }
+  }
+
   function locate() {
     if (!navigator.geolocation) return (notice = t.notice.unsupported);
     locating = true;
@@ -196,20 +208,31 @@
     if (selection?.kind === 'line') url.searchParams.set('line', selection.id);
     if (selection?.kind === 'station')
       url.searchParams.set('station', stations[selection.index].id);
-    if (routed && url.href !== location.href) replaceState(url, {});
+    if (!routed) return;
+    // a sheet opened from the bare map gets one history entry, so back always closes it
+    const { sheet } = untrack(() => page.state);
+    if (selection && !sheet) goto(url, { shallow: true, state: { sheet: true } });
+    else if (!selection && sheet) history.back();
+    else if (url.href !== location.href)
+      goto(url, { shallow: true, replace: true, state: { sheet } });
+  });
+
+  // back closes the sheet, and forward opens it again if the address says what was in it
+  $effect(() => {
+    const open = page.state.sheet === true;
+    if (open === sheeted) return;
+    sheeted = open;
+    untrack(() => {
+      if (!open) close();
+      else if (!selection) openFromAddress();
+    });
   });
 
   afterNavigate(() => (routed = true));
 
   onMount(() => {
     load();
-    const line = page.url.searchParams.get('line');
-    const station = stationById.get(page.url.searchParams.get('station') ?? '');
-    if (line && isLineId(line)) pickLine(line);
-    else if (station) {
-      reveal(station.lines[0]);
-      pickStation(station.index);
-    }
+    openFromAddress();
 
     live.start();
     const tick = setInterval(() => (now = Date.now()), 1000);
