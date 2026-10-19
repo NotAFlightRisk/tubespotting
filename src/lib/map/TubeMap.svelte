@@ -11,6 +11,7 @@
     paintLabels,
     paintNetwork,
     paintTrains,
+    type Box,
     type Closures,
     type Focus,
     type Hit,
@@ -140,7 +141,13 @@
     return best;
   }
 
+  const within = (at: Point, { x, y, w, h }: Box) =>
+    at.x >= x && at.x <= x + w && at.y >= y && at.y <= y + h;
+
+  // names are painted over the trains, so a click on one goes to its station
   function pickAt(at: Point): Tap {
+    const label = labels.find(({ box }) => within(at, box));
+    if (label) return { kind: 'station', index: label.station };
     const train = nearest(trainHits, at);
     if (train !== null) return { kind: 'train', key: train };
     const station = nearest(stationHits, at);

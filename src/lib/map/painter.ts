@@ -50,6 +50,8 @@ export interface Label extends Point {
   text: string;
   align: CanvasTextAlign;
   size: number;
+  station: number;
+  box: Box;
 }
 
 /** How much of the map's left and bottom the panels cover */
@@ -372,7 +374,7 @@ function drawStations(
   ctx.globalAlpha = 1;
 }
 
-interface Box {
+export interface Box {
   x: number;
   y: number;
   w: number;
@@ -459,9 +461,13 @@ function placeLabels(
     ];
     const spot = options.find((box) => fits(box) && !placed.some((other) => overlaps(box, other)));
     if (!spot) continue;
-    placed.push({ x: spot.x - 3, y: spot.y - 2, w: spot.w + 6, h: spot.h + 4 });
+    const box = { x: spot.x - 3, y: spot.y - 2, w: spot.w + 6, h: spot.h + 4 };
+    placed.push(box);
     const x = spot.align === 'left' ? spot.x : spot.align === 'right' ? spot.x + w : spot.x + w / 2;
-    labels.push({ text, x, y: spot.y + size / 2, align: spot.align, size });
+    // a shared name opens whichever of its stations is on the picked line
+    const { index: station } =
+      group.members.find((m) => focus.line && m.lines.includes(focus.line)) ?? group.members[0];
+    labels.push({ text, x, y: spot.y + size / 2, align: spot.align, size, station, box });
   }
   return labels;
 }
