@@ -27,7 +27,9 @@ export default {
       one: 'Karte der Londoner U-Bahn mit # Zug live in Bewegung',
       other: 'Karte der Londoner U-Bahn mit # Zügen live in Bewegung'
     },
-    keys: 'Pfeiltasten verschieben die Karte, Plus und Minus zoomen. Linienliste, Suche und Stationstafeln zeigen alles, was auch die Karte zeigt.'
+    keys: 'Pfeiltasten verschieben die Karte, Plus und Minus zoomen. Linienliste, Suche und Stationstafeln zeigen alles, was auch die Karte zeigt.',
+    station: (station: string) =>
+      `Live-Karte rund um ${station}, mit ihren Linien und Zügen hervorgehoben`
   },
   page: {
     search: 'Suchen',
@@ -70,7 +72,44 @@ export default {
     terminating: 'Keine Abfahrten, nur Züge, die hier enden.',
     arrivingNow: 'Der nächste kommt jetzt an.',
     arrivingIn: (time: string) => `Der nächste kommt in ${time} an.`,
-    none: 'Gerade sind hier keine Züge angekündigt.'
+    none: 'Gerade sind hier keine Züge angekündigt.',
+    page: 'Stationsseite',
+    terminatingHere: 'Endet hier',
+    trail: 'Brotkrumennavigation',
+    liveMap: 'Live-Karte',
+    departures: 'Abfahrten',
+    notices: 'Hinweise zur Station',
+    status: 'Linienstatus',
+    busy: 'Stoßzeiten',
+    day: 'Tag',
+    busiest: (time: string) => `Meist am vollsten gegen ${time}`,
+    now: 'Jetzt',
+    around: 'Umgebung',
+    next: 'Nächste Halte',
+    nearby: 'Zu Fuß erreichbar',
+    onMap: 'Auf der Live-Karte öffnen',
+    recentre: 'Zurück zur Station'
+  },
+  facts: {
+    title: 'Ausstattung',
+    zone: 'Zone',
+    night: 'Night Tube',
+    lifts: 'Aufzüge',
+    escalators: 'Rolltreppen',
+    byLift: 'Per Aufzug',
+    access: 'Stufenloser Zugang',
+    toilets: 'Toiletten',
+    wifi: 'WLAN',
+    address: 'Adresse',
+    yes: 'Ja',
+    no: 'Nein'
+  },
+  stations: {
+    title: 'Stationen',
+    heading: 'Alle Stationen von A bis Z',
+    intro: (count: string) =>
+      `Alle ${count} Stationen der Karte, jede mit Live-Abfahrten, Stoßzeiten und den Zügen auf dem Weg.`,
+    letters: 'Zu einem Buchstaben springen'
   },
   train: {
     gone: 'Dieser Zug ist weg',

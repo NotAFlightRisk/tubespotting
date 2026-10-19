@@ -7,6 +7,7 @@ import {
   lineRuns,
   middle,
   pair,
+  places,
   routeGraph,
   sideways,
   stations,
@@ -31,15 +32,20 @@ export interface Palette {
   edges: Record<LineId, string>;
 }
 
+type Picked = ReadonlySet<LineId> | null;
+
 export interface Focus {
   /** Lines on the map at all */
   shown: Set<LineId>;
-  line: LineId | null;
-  /** The line focused before, and how far (0 to 1) the fade from it has got */
-  previous: LineId | null;
+  /** Lines picked out, with the rest faded back */
+  lines: Picked;
+  /** The lines picked out before, and how far (0 to 1) the fade from them has got */
+  previous: Picked;
   fade: number;
   station: number | null;
   train: string | null;
+  /** Trains off the picked lines go, rather than fade */
+  alone?: boolean;
 }
 
 export interface Hit extends Point {
@@ -75,14 +81,21 @@ const BEND = 1.5;
 const RING_LINES = 4;
 const FONT = '"Hammersmith One", system-ui, sans-serif';
 
-const mix = (focus: Focus, alpha: (line: LineId | null) => number) =>
-  alpha(focus.previous) + (alpha(focus.line) - alpha(focus.previous)) * focus.fade;
+const mix = (focus: Focus, alpha: (picked: Picked) => number) =>
+  alpha(focus.previous) + (alpha(focus.lines) - alpha(focus.previous)) * focus.fade;
+
+/** Whether any of these lines is picked out, which they all are when none is */
+const onPicked = (picked: Picked, lines: Iterable<LineId>) =>
+  !picked || [...lines].some((line) => picked.has(line));
 
 const lineAlpha = (focus: Focus, line: LineId) =>
-  mix(focus, (picked) => (picked && picked !== line ? FADED : 1));
+  mix(focus, (picked) => (onPicked(picked, [line]) ? 1 : FADED));
+
+const trainAlpha = (focus: Focus, line: LineId) =>
+  mix(focus, (picked) => (onPicked(picked, [line]) ? 1 : focus.alone ? 0 : FADED));
 
 const stationAlpha = (focus: Focus, station: Station) =>
-  mix(focus, (picked) => (picked && !station.lines.includes(picked) ? FADED : 1));
+  mix(focus, (picked) => (onPicked(picked, station.lines) ? 1 : FADED));
 
 interface Marks {
   /** Each station's lines that are on show */
@@ -112,17 +125,15 @@ function marksFor(shown: Set<LineId>): Marks {
       )
   );
 
-  // a hub's stations that share a name get one label between them
-  const groups = new Map<string, Station[]>();
-  for (const station of showing) {
-    const key = `${station.hub ?? station.id}|${station.name}`;
-    groups.set(key, [...(groups.get(key) ?? []), station]);
-  }
-  const labelGroups = [...groups.values()].map((members) => ({
-    name: members[0].name,
-    members,
-    lines: new Set(members.flatMap((m) => lines[m.index]))
-  }));
+  // a place gets one label, from whichever of its stations are on show, and in their order, as
+  // that settles which of two names gets a spot they both want
+  const labelGroups = places
+    .map(({ name, members }) => {
+      const on = members.filter((m) => lines[m.index].length);
+      return { name, members: on, lines: new Set(on.flatMap((m) => lines[m.index])) };
+    })
+    .filter(({ members }) => members.length)
+    .sort((a, b) => a.members[0].index - b.members[0].index);
 
   const byHub = new Map<string, Station[]>();
   for (const station of showing) {
@@ -407,7 +418,7 @@ function placeLabels(
     box.y >= 0 &&
     box.x + box.w <= view.width &&
     box.y + box.h <= view.height - inset.bottom;
-  const size = labelSize(view.k) - (focus.line ? 1 : 0);
+  const size = labelSize(view.k) - (focus.lines ? 1 : 0);
   const width = lineWidth(view.k);
   const marks = marksFor(focus.shown);
   const { interchanges, labelGroups, termini } = marks;
@@ -415,18 +426,18 @@ function placeLabels(
   // interchange rings stay readable, so labels go round the ones still in view
   const placed: Box[] = [...interchanges].flatMap((index) => {
     const hit = hits.get(index);
-    if (!hit || (focus.line && !stations[index].lines.includes(focus.line))) return [];
+    if (!hit || !onPicked(focus.lines, stations[index].lines)) return [];
     const r = hit.radius - 6;
     return [{ x: hit.x - r, y: hit.y - r, w: r * 2, h: r * 2 }];
   });
   const wanted = labelGroups
     .map((group) => {
       const focused = group.members.some((m) => m.index === focus.station);
-      const onLine = focus.line ? group.lines.has(focus.line) : true;
+      const onLine = onPicked(focus.lines, group.lines);
       const end = group.members.some((m) => termini.has(m.index));
-      const weight = focused ? 100 : group.lines.size + (focus.line ? (end ? 40 : 10) : 0);
+      const weight = focused ? 100 : group.lines.size + (focus.lines ? (end ? 40 : 10) : 0);
       const threshold =
-        focused || (focus.line && onLine)
+        focused || (focus.lines && onLine)
           ? 0
           : [0.06, 0.03, 0.016][Math.min(group.lines.size, 3) - 1];
       return { group, weight, show: view.k >= threshold && (onLine || focused) };
@@ -464,9 +475,9 @@ function placeLabels(
     const box = { x: spot.x - 3, y: spot.y - 2, w: spot.w + 6, h: spot.h + 4 };
     placed.push(box);
     const x = spot.align === 'left' ? spot.x : spot.align === 'right' ? spot.x + w : spot.x + w / 2;
-    // a shared name opens whichever of its stations is on the picked line
+    // a shared name opens whichever of its stations is on a picked line
     const { index: station } =
-      group.members.find((m) => focus.line && m.lines.includes(focus.line)) ?? group.members[0];
+      group.members.find((m) => focus.lines && onPicked(focus.lines, m.lines)) ?? group.members[0];
     labels.push({ text, x, y: spot.y + size / 2, align: spot.align, size, station, box });
   }
   return labels;
@@ -549,8 +560,10 @@ export function paintTrains(
     const base = toScreen(view, shown);
     const p = { x: base.x + shown.ox * width, y: base.y + shown.oy * width };
     if (!visible(view, p)) continue;
+    const alpha = Math.max(0, train.opacity) * trainAlpha(focus, reading.line);
+    if (!alpha) continue;
     const selected = train.key === focus.train;
-    ctx.globalAlpha = Math.max(0, train.opacity) * lineAlpha(focus, reading.line);
+    ctx.globalAlpha = alpha;
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.rotate(shown.angle);

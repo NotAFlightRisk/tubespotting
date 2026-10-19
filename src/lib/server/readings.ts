@@ -384,3 +384,23 @@ export const readStatus = (raw: RawStatus[]): LineStatus[] =>
       }
     ];
   });
+
+export interface RawNotice {
+  atcoCode: string;
+  description: string;
+}
+
+/** TfL's notices for each of our stations, minus the name in capitals most of them lead with */
+export function readNotices(raw: RawNotice[]): Record<string, string[]> {
+  const notices: Record<string, string[]> = {};
+  for (const { atcoCode, description } of raw) {
+    if (!stationById.has(atcoCode)) continue;
+    const text = description
+      .replace(/^[A-Z0-9 &'.,()/-]+:\s*/, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const said = (notices[atcoCode] ??= []);
+    if (text && !said.includes(text)) said.push(text);
+  }
+  return notices;
+}

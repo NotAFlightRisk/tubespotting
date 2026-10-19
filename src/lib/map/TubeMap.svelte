@@ -26,7 +26,7 @@
 
   interface Props {
     live: Live;
-    focus: Pick<Focus, 'shown' | 'line' | 'station' | 'train'>;
+    focus: Pick<Focus, 'shown' | 'lines' | 'station' | 'train' | 'alone'>;
     follow: boolean;
     inset: Inset;
     style: Style;
@@ -178,7 +178,13 @@
 
   function resize() {
     const ratio = window.devicePixelRatio || 1;
+    const was = size;
     size = { width: wrap.clientWidth, height: wrap.clientHeight };
+    // the map keeps the same place in its middle as it changes size, as a page's panels move
+    if (was.width) {
+      const [dx, dy] = [(size.width - was.width) / 2, (size.height - was.height) / 2];
+      select(top).call(behaviour.translateBy, dx / transform.k, dy / transform.k);
+    }
     for (const canvas of [base, top]) {
       canvas.width = Math.round(size.width * ratio);
       canvas.height = Math.round(size.height * ratio);
@@ -201,16 +207,19 @@
     dirty = true;
   });
 
-  // picking a line fades the rest back rather than cutting
-  let fading = { from: null as Focus['line'], to: null as Focus['line'], since: 0 };
+  // picking lines fades the rest back rather than cutting
+  let fading = { from: null as Focus['lines'], to: null as Focus['lines'], since: 0 };
   const FADE_MS = 400;
+  // by what's in them, as the page makes a new set of the same lines whenever it looks again
+  const same = (a: Focus['lines'], b: Focus['lines']) =>
+    a === b || (a?.size === b?.size && [...(a ?? [])].every((line) => b?.has(line)));
 
   $effect(() => {
-    if (focus.line !== fading.to) {
-      fading = { from: fading.to, to: focus.line, since: performance.now() };
+    if (!same(focus.lines, fading.to)) {
+      fading = { from: fading.to, to: focus.lines, since: performance.now() };
       outgoing = labels;
     }
-    void [focus.shown, focus.station, focus.train, inset];
+    void [focus.shown, focus.station, focus.train, focus.alone, inset];
     dirty = true;
   });
 

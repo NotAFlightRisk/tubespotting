@@ -16,7 +16,11 @@ const formats = $derived.by(() => {
   return {
     plural: new Intl.PluralRules(tag),
     list: new Intl.ListFormat(tag),
-    clock: new Intl.DateTimeFormat(tag, { timeStyle: 'medium', timeZone: 'Europe/London' })
+    clock: new Intl.DateTimeFormat(tag, { timeStyle: 'medium', timeZone: 'Europe/London' }),
+    // a made-up day in UTC, so a weekday or an hour reads the same wherever someone is
+    weekday: new Intl.DateTimeFormat(tag, { weekday: 'long', timeZone: 'UTC' }),
+    hour: new Intl.DateTimeFormat(tag, { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' }),
+    metres: new Intl.NumberFormat(tag, { style: 'unit', unit: 'meter' })
   };
 });
 
@@ -24,6 +28,11 @@ export const count = (forms: Plural, n: number) =>
   (forms[formats.plural.select(n)] ?? forms.other).replace('#', String(n));
 export const list = (items: string[]) => formats.list.format(items);
 export const clock = (at: number) => formats.clock.format(at);
+/** Monday is 0 */
+export const weekday = (day: number) => formats.weekday.format(Date.UTC(2024, 0, 1 + day));
+export const hour = (hour: number) => formats.hour.format(Date.UTC(2024, 0, 1, hour));
+/** To the nearest 10, as a crow-flies distance is only roughly how far it is to walk */
+export const metres = (m: number) => formats.metres.format(Math.round(m / 10) * 10);
 
 const messagesFor = (code: Locale) =>
   code === 'en' ? Promise.resolve(en) : translations[`./messages/${code}.ts`]();

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { count, list, t } from '#lib/i18n/i18n.svelte.js';
-  import { LINES, MODES, type LineId, type ModeId } from '#lib/lines.js';
+  import { colourOf, inkOf, LINES, MODES, type LineId, type ModeId } from '#lib/lines.js';
   import { tone } from '#lib/status.js';
   import type { LineStatus } from '#lib/types.js';
   import Icon from './Icon.svelte';
@@ -42,8 +42,8 @@
         <button
           type="button"
           class="line"
-          style:--line={line.id === 'northern' ? 'var(--northern)' : line.colour}
-          style:--ink={line.id === 'northern' ? 'var(--paper)' : line.ink}
+          style:--line={colourOf(line)}
+          style:--ink={inkOf(line)}
           onclick={() => onpick(line.id)}
         >
           <span class="name">{line.name}</span>

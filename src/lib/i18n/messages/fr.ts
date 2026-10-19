@@ -27,7 +27,9 @@ export default {
       one: 'Carte du métro de Londres avec # train qui circule en direct',
       other: 'Carte du métro de Londres avec # trains qui circulent en direct'
     },
-    keys: 'Les flèches déplacent la carte, plus et moins zooment. La liste des lignes, la recherche et les tableaux des stations reprennent tout ce que montre la carte.'
+    keys: 'Les flèches déplacent la carte, plus et moins zooment. La liste des lignes, la recherche et les tableaux des stations reprennent tout ce que montre la carte.',
+    station: (station: string) =>
+      `Carte en direct autour de ${station}, avec ses lignes et ses trains mis en avant`
   },
   page: {
     search: 'Rechercher',
@@ -70,7 +72,44 @@ export default {
     terminating: 'Aucun départ annoncé, seulement des trains qui terminent ici.',
     arrivingNow: 'Le prochain arrive maintenant.',
     arrivingIn: (time: string) => `Le prochain arrive dans ${time}.`,
-    none: 'Aucun train attendu ici pour le moment.'
+    none: 'Aucun train attendu ici pour le moment.',
+    page: 'Page de la station',
+    terminatingHere: 'Terminus ici',
+    trail: 'Fil d’Ariane',
+    liveMap: 'Carte en direct',
+    departures: 'Départs',
+    notices: 'Avis de la station',
+    status: 'État des lignes',
+    busy: 'Affluence',
+    day: 'Jour',
+    busiest: (time: string) => `Généralement le plus fréquenté vers ${time}`,
+    now: 'Maintenant',
+    around: 'Aux alentours',
+    next: 'Arrêts suivants',
+    nearby: 'À quelques pas',
+    onMap: 'Ouvrir sur la carte en direct',
+    recentre: 'Revenir à la station'
+  },
+  facts: {
+    title: 'Équipements',
+    zone: 'Zone',
+    night: 'Night Tube',
+    lifts: 'Ascenseurs',
+    escalators: 'Escaliers mécaniques',
+    byLift: 'Par ascenseur',
+    access: 'Accès de plain-pied',
+    toilets: 'Toilettes',
+    wifi: 'Wi-Fi',
+    address: 'Adresse',
+    yes: 'Oui',
+    no: 'Non'
+  },
+  stations: {
+    title: 'Stations',
+    heading: 'Toutes les stations, de A à Z',
+    intro: (count: string) =>
+      `Les ${count} stations de la carte, chacune avec ses départs en direct, son affluence et les trains qui arrivent.`,
+    letters: 'Aller à une lettre'
   },
   train: {
     gone: 'Ce train a disparu',

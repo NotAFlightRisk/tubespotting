@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { pair, stations } from '#lib/network.js';
-import { lastStation, Platforms, readStatus, readTrains } from '#lib/server/readings.js';
+import {
+  lastStation,
+  Platforms,
+  readNotices,
+  readStatus,
+  readTrains
+} from '#lib/server/readings.js';
 import { AT, call, index } from '../helpers.js';
 
 const read = (predictions: Parameters<typeof readTrains>[0]) =>
@@ -306,5 +312,30 @@ describe('readStatus', () => {
     ]);
     expect(circle.closed).toEqual([pair(index(ERC), index(PAC)), pair(index(PAC), index(BWT))]);
     expect(bakerloo.closed).toBeUndefined();
+  });
+});
+
+describe('readNotices', () => {
+  const BARONS_COURT = '940GZZLUBSC';
+
+  it("files each notice under its station, without TfL's heading in capitals", () => {
+    const notices = readNotices([
+      {
+        atcoCode: BARONS_COURT,
+        description: 'BARONS COURT STATION: Westbound trains will not call at  Barons Court.'
+      },
+      { atcoCode: '940GZZLUKWG', description: 'Step-free interchange requires a 600m journey.' }
+    ]);
+    expect(notices).toEqual({
+      [BARONS_COURT]: ['Westbound trains will not call at Barons Court.'],
+      '940GZZLUKWG': ['Step-free interchange requires a 600m journey.']
+    });
+  });
+
+  it('says each thing once, and skips stations that are not on the map', () => {
+    const twice = { atcoCode: BARONS_COURT, description: 'No lift service.' };
+    expect(
+      readNotices([twice, twice, { atcoCode: '490000000000X', description: 'A bus stop.' }])
+    ).toEqual({ [BARONS_COURT]: ['No lift service.'] });
   });
 });

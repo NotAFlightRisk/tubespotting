@@ -76,6 +76,13 @@ body {
   overflow: hidden;
 }
 
+/* a page to read through scrolls as usual, where the map moves itself instead */
+:root:has(.scrolls),
+:root:has(.scrolls) body {
+  height: auto;
+  overflow: visible;
+}
+
 body {
   background: var(--paper);
   color: var(--text);
@@ -103,6 +110,23 @@ button {
 a {
   color: var(--accent);
   text-underline-offset: 3px;
+}
+
+/* the round buttons that sit over the map */
+.floating > button {
+  display: grid;
+  place-items: center;
+  width: var(--tap);
+  height: var(--tap);
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+
+  &:hover {
+    background: var(--surface-sunk);
+  }
 }
 
 .visually-hidden {

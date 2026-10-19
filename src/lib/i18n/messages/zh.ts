@@ -24,7 +24,8 @@ export default {
   },
   map: {
     label: { other: '伦敦地铁地图，# 趟列车正在实时运行' },
-    keys: '方向键移动地图，加号和减号缩放。线路列表、搜索和车站信息板包含地图上的全部内容。'
+    keys: '方向键移动地图，加号和减号缩放。线路列表、搜索和车站信息板包含地图上的全部内容。',
+    station: (station: string) => `${station}周边的实时地图，突出显示该站的线路和列车`
   },
   page: {
     search: '搜索',
@@ -67,7 +68,44 @@ export default {
     terminating: '没有发车信息，只有在本站终到的列车。',
     arrivingNow: '下一班现在到站。',
     arrivingIn: (time: string) => `下一班 ${time}后到站。`,
-    none: '目前本站没有即将到站的列车。'
+    none: '目前本站没有即将到站的列车。',
+    page: '车站页面',
+    terminatingHere: '在此终到',
+    trail: '导航路径',
+    liveMap: '实时地图',
+    departures: '发车',
+    notices: '车站通知',
+    status: '线路状态',
+    busy: '繁忙时段',
+    day: '星期',
+    busiest: (time: string) => `通常在${time}左右最繁忙`,
+    now: '现在',
+    around: '周边交通',
+    next: '下一站',
+    nearby: '步行可达',
+    onMap: '在实时地图上打开',
+    recentre: '回到车站'
+  },
+  facts: {
+    title: '设施',
+    zone: '区域',
+    night: 'Night Tube',
+    lifts: '电梯',
+    escalators: '自动扶梯',
+    byLift: '经电梯',
+    access: '无障碍通行',
+    toilets: '洗手间',
+    wifi: 'Wi-Fi',
+    address: '地址',
+    yes: '是',
+    no: '否'
+  },
+  stations: {
+    title: '车站',
+    heading: '所有车站（A–Z）',
+    intro: (count: string) =>
+      `地图上全部 ${count} 个车站，每站都有实时发车、繁忙时段和即将到站的列车。`,
+    letters: '跳转到字母'
   },
   train: {
     gone: '这趟列车已消失',

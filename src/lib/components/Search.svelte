@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '#lib/i18n/i18n.svelte.js';
   import { LINES, type LineId } from '#lib/lines.js';
-  import { stations, type Station } from '#lib/network.js';
+  import { places } from '#lib/network.js';
   import Icon from './Icon.svelte';
 
   interface Props {
@@ -24,13 +24,6 @@
   const LIMIT = 8;
   const everything: Result[] = $derived.by(() => {
     const lines = LINES.filter((line) => shown.has(line.id));
-    // a hub's stations that share a name are one result, listing every line between them
-    const places = new Map<string, Station[]>();
-    for (const s of stations) {
-      if (!s.lines.some((line) => shown.has(line))) continue;
-      const key = `${s.hub ?? s.id}|${s.name}`;
-      places.set(key, [...(places.get(key) ?? []), s]);
-    }
     return [
       ...lines.map((line) => ({
         kind: 'line' as const,
@@ -38,16 +31,21 @@
         label: t.search.line(line.name),
         detail: t.search.kind
       })),
-      ...[...places.values()].map((members) => ({
-        kind: 'station' as const,
-        id: members[0].id,
-        label: members[0].name,
-        detail: lines
-          .filter((line) => members.some((s) => s.lines.includes(line.id)))
-          .map((line) => line.name)
-          .join(', '),
-        index: members[0].index
-      }))
+      // one result a place, listing every line between its stations
+      ...places.flatMap(({ name, members }) => {
+        const station = members.find((s) => s.lines.some((line) => shown.has(line)));
+        if (!station) return [];
+        return {
+          kind: 'station' as const,
+          id: station.id,
+          label: name,
+          detail: lines
+            .filter((line) => members.some((s) => s.lines.includes(line.id)))
+            .map((line) => line.name)
+            .join(', '),
+          index: station.index
+        };
+      })
     ];
   });
 

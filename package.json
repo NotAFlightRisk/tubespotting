@@ -21,6 +21,7 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
     "network": "node scripts/network.mjs",
+    "stations": "node scripts/stations.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

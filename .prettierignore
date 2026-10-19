@@ -3,3 +3,4 @@ build
 .wrangler
 package-lock.json
 src/lib/data
+src/lib/server/stations.json
