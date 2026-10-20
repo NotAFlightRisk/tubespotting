@@ -85,6 +85,10 @@ export const lineById = (id: string): Line | undefined => BY_ID.get(id as LineId
 
 export const isLineId = (id: string): id is LineId => BY_ID.has(id as LineId);
 
+// the Northern's black would vanish on the night page, so it follows the theme
+export const colourOf = (line: Line) => (line.id === 'northern' ? 'var(--northern)' : line.colour);
+export const inkOf = (line: Line) => (line.id === 'northern' ? 'var(--paper)' : line.ink);
+
 export const isModeId = (id: string): id is ModeId => MODES.some((mode) => mode.id === id);
 
 /** Lines from the modes someone's switched on */

@@ -2,7 +2,14 @@ import { TFL_APP_KEY } from '$app/env/private';
 import { waitUntil } from 'cloudflare:workers';
 import { LINE_IDS, MODES } from '#lib/lines.js';
 import type { Snapshot } from '#lib/types.js';
-import { Platforms, readStatus, readTrains, type Prediction } from './readings.js';
+import {
+  Platforms,
+  readNotices,
+  readStatus,
+  readTrains,
+  type Prediction,
+  type RawNotice
+} from './readings.js';
 import { report } from './report.js';
 
 const BASE = 'https://api.tfl.gov.uk';
@@ -13,6 +20,8 @@ const STATUS_EVERY = 60_000;
 const RETRY = 20_000;
 // TfL drops out now and then, so it's only worth a report once it's been gone this long
 const OUTAGE = 10 * 60_000;
+// station notices change by the day, not the minute
+const NOTICES_EVERY = 5 * 60_000;
 
 async function get<T>(path: string): Promise<T> {
   const url = new URL(BASE + path);
@@ -90,4 +99,21 @@ export async function live(): Promise<string> {
     await refreshing?.catch((err) => (current ? null : Promise.reject(err)));
   if (!current) throw new Error('No reading from TfL yet');
   return current.body;
+}
+
+let notices: { until: number; body: Promise<string> } | null = null;
+
+/** Every station's notices, read for everyone at most once every few minutes */
+export function stationNotices(): Promise<string> {
+  if (!notices || Date.now() > notices.until) {
+    const body = get<RawNotice[]>(
+      `/StopPoint/Mode/${MODES.map((m) => m.id).join(',')}/Disruption`
+    ).then((raw) => JSON.stringify(readNotices(raw)));
+    notices = { until: Date.now() + NOTICES_EVERY, body };
+    // a failure's only kept long enough to give TfL a breather
+    body.catch(() => {
+      if (notices?.body === body) notices.until = Date.now() + RETRY;
+    });
+  }
+  return notices.body;
 }

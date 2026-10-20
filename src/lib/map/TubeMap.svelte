@@ -11,6 +11,7 @@
     paintLabels,
     paintNetwork,
     paintTrains,
+    type Box,
     type Closures,
     type Focus,
     type Hit,
@@ -25,7 +26,7 @@
 
   interface Props {
     live: Live;
-    focus: Pick<Focus, 'shown' | 'line' | 'station' | 'train'>;
+    focus: Pick<Focus, 'shown' | 'lines' | 'station' | 'train' | 'alone'>;
     follow: boolean;
     inset: Inset;
     style: Style;
@@ -35,6 +36,8 @@
     level?: number;
     label: string;
     you: Point | null;
+    /** Part of a page that scrolls past it, so a wheel scrolls on and only ctrl or a pinch zooms */
+    inPage?: boolean;
     onpick: (tap: Tap) => void;
     onwander: () => void;
   }
@@ -50,6 +53,7 @@
     level = $bindable(0),
     label,
     you,
+    inPage = false,
     onpick,
     onwander
   }: Props = $props();
@@ -140,7 +144,13 @@
     return best;
   }
 
+  const within = (at: Point, { x, y, w, h }: Box) =>
+    at.x >= x && at.x <= x + w && at.y >= y && at.y <= y + h;
+
+  // names are painted over the trains, so a click on one goes to its station
   function pickAt(at: Point): Tap {
+    const label = labels.find(({ box }) => within(at, box));
+    if (label) return { kind: 'station', index: label.station };
     const train = nearest(trainHits, at);
     if (train !== null) return { kind: 'train', key: train };
     const station = nearest(stationHits, at);
@@ -171,7 +181,13 @@
 
   function resize() {
     const ratio = window.devicePixelRatio || 1;
+    const was = size;
     size = { width: wrap.clientWidth, height: wrap.clientHeight };
+    // the map keeps the same place in its middle as it changes size, as a page's panels move
+    if (was.width) {
+      const [dx, dy] = [(size.width - was.width) / 2, (size.height - was.height) / 2];
+      select(top).call(behaviour.translateBy, dx / transform.k, dy / transform.k);
+    }
     for (const canvas of [base, top]) {
       canvas.width = Math.round(size.width * ratio);
       canvas.height = Math.round(size.height * ratio);
@@ -194,16 +210,19 @@
     dirty = true;
   });
 
-  // picking a line fades the rest back rather than cutting
-  let fading = { from: null as Focus['line'], to: null as Focus['line'], since: 0 };
+  // picking lines fades the rest back rather than cutting
+  let fading = { from: null as Focus['lines'], to: null as Focus['lines'], since: 0 };
   const FADE_MS = 400;
+  // by what's in them, as the page makes a new set of the same lines whenever it looks again
+  const same = (a: Focus['lines'], b: Focus['lines']) =>
+    a === b || (a?.size === b?.size && [...(a ?? [])].every((line) => b?.has(line)));
 
   $effect(() => {
-    if (focus.line !== fading.to) {
-      fading = { from: fading.to, to: focus.line, since: performance.now() };
+    if (!same(focus.lines, fading.to)) {
+      fading = { from: fading.to, to: focus.lines, since: performance.now() };
       outgoing = labels;
     }
-    void [focus.shown, focus.station, focus.train, inset];
+    void [focus.shown, focus.station, focus.train, focus.alone, inset];
     dirty = true;
   });
 
@@ -277,6 +296,9 @@
       .scaleExtent([FURTHEST, CLOSEST])
       .constrain(constrain)
       .tapDistance(30)
+      .filter((event) =>
+        event.type === 'wheel' ? event.ctrlKey || !inPage : !event.ctrlKey && !event.button
+      )
       .on('zoom', (event) => {
         transform = event.transform;
         level = Math.log(transform.k / FURTHEST) / Math.log(CLOSEST / FURTHEST);

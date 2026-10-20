@@ -29,7 +29,9 @@ export default {
       many: 'Mapa londyńskiego metra z # pociągami w ruchu na żywo',
       other: 'Mapa londyńskiego metra z # pociągu w ruchu na żywo'
     },
-    keys: 'Strzałki przesuwają mapę, plus i minus zmieniają przybliżenie. Lista linii, wyszukiwarka i tablice stacji pokazują wszystko to, co mapa.'
+    keys: 'Strzałki przesuwają mapę, plus i minus zmieniają przybliżenie. Lista linii, wyszukiwarka i tablice stacji pokazują wszystko to, co mapa.',
+    station: (station: string) =>
+      `Mapa na żywo wokół stacji ${station}, z wyróżnionymi jej liniami i pociągami`
   },
   page: {
     search: 'Szukaj',
@@ -77,7 +79,44 @@ export default {
     terminating: 'Brak odjazdów, tylko pociągi kończące tu bieg.',
     arrivingNow: 'Następny przyjeżdża teraz.',
     arrivingIn: (time: string) => `Następny przyjedzie za ${time}.`,
-    none: 'W tej chwili nie ma tu żadnych pociągów.'
+    none: 'W tej chwili nie ma tu żadnych pociągów.',
+    page: 'Strona stacji',
+    terminatingHere: 'Kończą bieg tutaj',
+    trail: 'Ścieżka nawigacji',
+    liveMap: 'Mapa na żywo',
+    departures: 'Odjazdy',
+    notices: 'Komunikaty stacji',
+    status: 'Stan linii',
+    busy: 'Natężenie ruchu',
+    day: 'Dzień',
+    busiest: (time: string) => `Zwykle najwięcej osób około ${time}`,
+    now: 'Teraz',
+    around: 'Okolica',
+    next: 'Następne przystanki',
+    nearby: 'Kilka minut pieszo',
+    onMap: 'Otwórz na mapie na żywo',
+    recentre: 'Wróć do stacji'
+  },
+  facts: {
+    title: 'Udogodnienia',
+    zone: 'Strefa',
+    night: 'Night Tube',
+    lifts: 'Windy',
+    escalators: 'Schody ruchome',
+    byLift: 'Windą',
+    access: 'Dostęp bez schodów',
+    toilets: 'Toalety',
+    wifi: 'Wi-Fi',
+    address: 'Adres',
+    yes: 'Tak',
+    no: 'Nie'
+  },
+  stations: {
+    title: 'Stacje',
+    heading: 'Wszystkie stacje od A do Z',
+    intro: (count: string) =>
+      `Wszystkie stacje na mapie (${count}), każda z odjazdami na żywo, natężeniem ruchu i pociągami w drodze.`,
+    letters: 'Przejdź do litery'
   },
   train: {
     gone: 'Tego pociągu już nie ma',

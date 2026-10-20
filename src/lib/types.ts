@@ -33,3 +33,21 @@ export interface Snapshot {
   platforms: string[];
   status: LineStatus[];
 }
+
+/** What TfL lists a station as having, where it says */
+export interface Facts {
+  zone?: string;
+  lifts?: number;
+  escalators?: number;
+  toilets?: boolean;
+  wifi?: boolean;
+  night?: boolean;
+  /** Whether a lift is the way in, which says nothing when it isn't, as there may be no steps */
+  liftAccess?: boolean;
+  /** TfL's note on getting in and out without steps, where there's a catch */
+  access?: string;
+  address?: string;
+}
+
+/** How busy a station usually gets, Monday first, hour by hour, out of 100 for its busiest */
+export type Busy = number[][];

@@ -1,21 +1,24 @@
 <script lang="ts">
-  import { afterNavigate, replaceState } from '$app/navigation';
+  import { afterNavigate, goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { MediaQuery } from 'svelte/reactivity';
   import About from '#lib/components/About.svelte';
   import Board from '#lib/components/Board.svelte';
+  import Feed from '#lib/components/Feed.svelte';
   import Grip from '#lib/components/Grip.svelte';
+  import Head from '#lib/components/Head.svelte';
   import Icon from '#lib/components/Icon.svelte';
   import LineDetail from '#lib/components/LineDetail.svelte';
+  import MapButtons from '#lib/components/MapButtons.svelte';
   import Search from '#lib/components/Search.svelte';
   import StationDetail from '#lib/components/StationDetail.svelte';
   import TrainDetail from '#lib/components/TrainDetail.svelte';
   import { count, t } from '#lib/i18n/i18n.svelte.js';
   import { isLineId, lineById, linesIn, type LineId, type ModeId } from '#lib/lines.js';
-  import { Live } from '#lib/live.svelte.js';
+  import { live } from '#lib/live.svelte.js';
   import TubeMap, { type Tap } from '#lib/map/TubeMap.svelte';
-  import { description, imageAlt, name, site, source, structuredData, title } from '#lib/meta.js';
+  import { description, name, source, website } from '#lib/meta.js';
   import { distance, project, stationById, stations, type Point } from '#lib/network.js';
   import Settings from '#lib/settings/Settings.svelte';
   import { load, looks, settings } from '#lib/settings/settings.svelte.js';
@@ -27,9 +30,7 @@
     | { kind: 'about' }
     | null;
 
-  const live = new Live();
   const wide = new MediaQuery('min-width: 960px');
-  const STALE_SECONDS = 90;
   const NEARBY_KM = 3;
   const TUBE = linesIn(['tube']);
 
@@ -42,16 +43,17 @@
   let you = $state<Point | null>(null);
   let locating = $state(false);
   let notice = $state('');
-  let now = $state(Date.now());
   let panelHeight = $state(0);
   let innerHeight = $state(800);
   let map: TubeMap;
-  let routed = false;
+  let routed = $state(false);
+  let sheeted = false;
 
+  const now = $derived(live.now);
   const shown = $derived(linesIn(settings.modes));
   const focus = $derived({
     shown,
-    line: selection?.kind === 'line' ? selection.id : null,
+    lines: selection?.kind === 'line' ? new Set([selection.id]) : null,
     station: selection?.kind === 'station' ? selection.index : null,
     train: selection?.kind === 'train' ? selection.key : null
   });
@@ -83,22 +85,6 @@
       counts.set(train.reading.line, (counts.get(train.reading.line) ?? 0) + 1);
     return counts;
   });
-  const keys = $derived(new Map(running.map((train) => [train.reading, train.key])));
-  const age = $derived(live.snapshot ? (now - live.snapshot.at) / 1000 : Infinity);
-  const feed = $derived(
-    !live.snapshot
-      ? live.failing
-        ? 'unreachable'
-        : 'connecting'
-      : age > STALE_SECONDS
-        ? 'behind'
-        : live.failing || live.snapshot.stale
-          ? 'catchingUp'
-          : 'live'
-  );
-  const freshness = $derived(
-    feed === 'behind' ? t.feed.behind(t.minutes(Math.round(age / 60))) : t.feed[feed]
-  );
   const about = $derived(selection?.kind === 'about');
   const tracked = $derived.by(() => {
     void live.snapshot;
@@ -108,10 +94,6 @@
   function toggle(mode: ModeId) {
     const { modes } = settings;
     settings.modes = modes.includes(mode) ? modes.filter((m) => m !== mode) : [...modes, mode];
-  }
-
-  function flipStyle() {
-    settings.style = settings.style === 'schematic' ? 'geographic' : 'schematic';
   }
 
   // a link to a line or station that's switched off switches it on
@@ -155,6 +137,17 @@
     follow = false;
   }
 
+  function openFromAddress() {
+    const params = new URLSearchParams(location.search);
+    const line = params.get('line');
+    const station = stationById.get(params.get('station') ?? '');
+    if (line && isLineId(line)) pickLine(line);
+    else if (station) {
+      reveal(station.lines[0]);
+      pickStation(station.index);
+    }
+  }
+
   function locate() {
     if (!navigator.geolocation) return (notice = t.notice.unsupported);
     locating = true;
@@ -196,30 +189,32 @@
     if (selection?.kind === 'line') url.searchParams.set('line', selection.id);
     if (selection?.kind === 'station')
       url.searchParams.set('station', stations[selection.index].id);
-    if (routed && url.href !== location.href) replaceState(url, {});
+    if (!routed) return;
+    // a sheet opened from the bare map gets one history entry, so back always closes it
+    const { sheet } = untrack(() => page.state);
+    if (selection && !sheet) goto(url, { shallow: true, state: { sheet: true } });
+    else if (!selection && sheet) history.back();
+    else if (url.href !== location.href)
+      goto(url, { shallow: true, replace: true, state: { sheet } });
+  });
+
+  // back closes the sheet, and forward opens it again if the address says what was in it
+  $effect(() => {
+    const open = page.state.sheet === true;
+    if (open === sheeted) return;
+    sheeted = open;
+    untrack(() => {
+      if (!open) close();
+      else if (!selection) openFromAddress();
+    });
   });
 
   afterNavigate(() => (routed = true));
 
   onMount(() => {
     load();
-    const line = page.url.searchParams.get('line');
-    const station = stationById.get(page.url.searchParams.get('station') ?? '');
-    if (line && isLineId(line)) pickLine(line);
-    else if (station) {
-      reveal(station.lines[0]);
-      pickStation(station.index);
-    }
-
-    live.start();
-    const tick = setInterval(() => (now = Date.now()), 1000);
-    const wake = () => (document.hidden ? live.stop() : live.start());
-    document.addEventListener('visibilitychange', wake);
-    return () => {
-      live.stop();
-      clearInterval(tick);
-      document.removeEventListener('visibilitychange', wake);
-    };
+    openFromAddress();
+    return live.connect();
   });
 </script>
 
@@ -233,25 +228,7 @@
   }}
 />
 
-<svelte:head>
-  <title>{name} | {t.title}</title>
-  <meta name="description" content={description} />
-  <meta name="robots" content="max-image-preview:large" />
-  <link rel="canonical" href={site} />
-  <meta property="og:type" content="website" />
-  <meta property="og:site_name" content={name} />
-  <meta property="og:locale" content="en_GB" />
-  <meta property="og:title" content={title} />
-  <meta property="og:description" content={description} />
-  <meta property="og:url" content={site} />
-  <meta property="og:image" content="{site}/og.png" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content={imageAlt} />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:image:alt" content={imageAlt} />
-  {@html `<script type="application/ld+json">${structuredData}</script>`}
-</svelte:head>
+<Head title="{name} | {t.title}" {description} data={[website]} />
 
 <div class="app" class:open={selection !== null}>
   <TubeMap
@@ -274,15 +251,9 @@
     <header class="masthead">
       <div class="brand">
         <h1>tubespotting</h1>
-        <p class="pill" class:live={feed === 'live'}>
-          <span class="beat" aria-hidden="true"></span>
-          <span class="words">
-            {#if live.snapshot}<span>{count(t.trains, running.length)}</span>{/if}
-            <span role="status">{freshness}</span>
-          </span>
-        </p>
+        <Feed trains={running.length} />
       </div>
-      <div class="actions">
+      <div class="actions floating">
         <button
           type="button"
           aria-label={t.page.search}
@@ -350,7 +321,7 @@
             {shown}
             snapshot={live.snapshot}
             {now}
-            keyOf={(reading) => keys.get(reading)}
+            trainOf={live.trainOf}
             onpicktrain={pickTrain}
           />
         {:else if selection.kind === 'train'}
@@ -380,6 +351,7 @@
         <button type="button" class="link" onclick={() => (selection = { kind: 'about' })}>
           <Icon name="info" size={16} />{t.about}
         </button>
+        <a class="link" href="/stations"><Icon name="roundel" size={16} />{t.stations.title}</a>
         <a class="link" href={source} target="_blank" rel="noopener"
           ><Icon name="github" size={16} />GitHub</a
         >
@@ -387,26 +359,9 @@
     {/if}
   </aside>
 
-  <div class="controls" style:--lift="{inset.bottom}px">
+  <div class="controls floating" style:--lift="{inset.bottom}px">
     {#if notice}<p class="notice" role="status">{notice}</p>{/if}
-    <button
-      type="button"
-      aria-label={t.page.style}
-      aria-pressed={settings.style === 'schematic'}
-      title={settings.style === 'schematic' ? t.page.toGeographic : t.page.toSchematic}
-      onclick={flipStyle}
-    >
-      <Icon name={settings.style === 'schematic' ? 'map' : 'tube'} />
-    </button>
-    <button type="button" class="zoom" aria-label={t.page.zoomIn} onclick={() => map.zoomBy(1.6)}
-      ><Icon name="plus" /></button
-    >
-    <button
-      type="button"
-      class="zoom"
-      aria-label={t.page.zoomOut}
-      onclick={() => map.zoomBy(1 / 1.6)}><Icon name="minus" /></button
-    >
+    <MapButtons onzoom={(by) => map.zoomBy(by)} />
     <button type="button" aria-label={t.page.locate} onclick={locate}><Icon name="locate" /></button
     >
   </div>
@@ -465,76 +420,10 @@
     letter-spacing: 0.01em;
   }
 
-  .pill {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin: 0;
-    color: var(--text-muted);
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
-
-    .beat {
-      flex: none;
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--warn);
-    }
-
-    &.live .beat {
-      background: var(--good);
-      animation: beat 2.4s var(--ease-out) infinite;
-    }
-  }
-
-  /* each part leads with a dot, clipped off when it wraps to the start of a line */
-  .words {
-    display: flex;
-    flex-wrap: wrap;
-    column-gap: 16px;
-    overflow-x: clip;
-
-    > ::before {
-      content: '·';
-      content: '·' / '';
-      display: inline-block;
-      width: 16px;
-      margin-left: -16px;
-      text-align: center;
-    }
-  }
-
-  @keyframes beat {
-    0% {
-      box-shadow: 0 0 0 0 color-mix(in srgb, var(--good) 55%, transparent);
-    }
-    100% {
-      box-shadow: 0 0 0 7px transparent;
-    }
-  }
-
   .actions {
     display: flex;
     gap: var(--space-2);
     margin-left: auto;
-  }
-
-  .actions button,
-  .controls button {
-    display: grid;
-    place-items: center;
-    width: var(--tap);
-    height: var(--tap);
-    border: 0;
-    border-radius: var(--radius);
-    background: var(--surface);
-    color: var(--text);
-    box-shadow: var(--shadow);
-
-    &:hover {
-      background: var(--surface-sunk);
-    }
   }
 
   .finder {
@@ -620,11 +509,6 @@
 
   @media (max-width: 959px) {
     .app.open .controls {
-      display: none;
-    }
-
-    /* phones pinch to zoom */
-    .controls .zoom {
       display: none;
     }
 

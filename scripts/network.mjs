@@ -34,7 +34,7 @@ const TFL = 'https://api.tfl.gov.uk';
 
 const wait = (ms) => new Promise((done) => setTimeout(done, ms));
 
-async function tfl(path, params = {}) {
+export async function tfl(path, params = {}) {
   const url = new URL(TFL + path);
   for (const [key, value] of Object.entries({ ...params, app_key: process.env.TFL_APP_KEY })) {
     if (value) url.searchParams.set(key, value);

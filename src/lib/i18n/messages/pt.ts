@@ -27,7 +27,9 @@ export default {
       one: 'Mapa do metrô de Londres com # trem circulando ao vivo',
       other: 'Mapa do metrô de Londres com # trens circulando ao vivo'
     },
-    keys: 'As setas movem o mapa, mais e menos mudam o zoom. A lista de linhas, a busca e os painéis das estações têm tudo o que o mapa mostra.'
+    keys: 'As setas movem o mapa, mais e menos mudam o zoom. A lista de linhas, a busca e os painéis das estações têm tudo o que o mapa mostra.',
+    station: (station: string) =>
+      `Mapa ao vivo em torno de ${station}, com suas linhas e trens em destaque`
   },
   page: {
     search: 'Buscar',
@@ -70,7 +72,44 @@ export default {
     terminating: 'Nenhuma partida listada, só trens que terminam aqui.',
     arrivingNow: 'O próximo chega agora.',
     arrivingIn: (time: string) => `O próximo chega em ${time}.`,
-    none: 'Nenhum trem previsto aqui no momento.'
+    none: 'Nenhum trem previsto aqui no momento.',
+    page: 'Página da estação',
+    terminatingHere: 'Termina aqui',
+    trail: 'Navegação estrutural',
+    liveMap: 'Mapa ao vivo',
+    departures: 'Partidas',
+    notices: 'Avisos da estação',
+    status: 'Situação das linhas',
+    busy: 'Movimento',
+    day: 'Dia',
+    busiest: (time: string) => `Geralmente mais cheia por volta das ${time}`,
+    now: 'Agora',
+    around: 'Arredores',
+    next: 'Próximas paradas',
+    nearby: 'A uma curta caminhada',
+    onMap: 'Abrir no mapa ao vivo',
+    recentre: 'Voltar para a estação'
+  },
+  facts: {
+    title: 'Instalações',
+    zone: 'Zona',
+    night: 'Night Tube',
+    lifts: 'Elevadores',
+    escalators: 'Escadas rolantes',
+    byLift: 'Por elevador',
+    access: 'Acesso sem degraus',
+    toilets: 'Banheiros',
+    wifi: 'Wi-Fi',
+    address: 'Endereço',
+    yes: 'Sim',
+    no: 'Não'
+  },
+  stations: {
+    title: 'Estações',
+    heading: 'Todas as estações, de A a Z',
+    intro: (count: string) =>
+      `Todas as ${count} estações do mapa, cada uma com partidas ao vivo, movimento e os trens a caminho.`,
+    letters: 'Ir para uma letra'
   },
   train: {
     gone: 'Esse trem sumiu',

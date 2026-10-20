@@ -27,7 +27,9 @@ const en = {
       one: 'Map of the London Underground with # train moving live',
       other: 'Map of the London Underground with # trains moving live'
     } as Plural,
-    keys: 'Arrow keys move the map, plus and minus zoom. The line list, search and station boards have everything the map shows.'
+    keys: 'Arrow keys move the map, plus and minus zoom. The line list, search and station boards have everything the map shows.',
+    station: (station: string) =>
+      `Live map around ${station}, with its own lines and trains picked out`
   },
   page: {
     search: 'Search',
@@ -70,7 +72,44 @@ const en = {
     terminating: 'No departures listed, only trains finishing here.',
     arrivingNow: 'The next one arrives now.',
     arrivingIn: (time: string) => `The next one arrives in ${time}.`,
-    none: 'No trains due here at the moment.'
+    none: 'No trains due here at the moment.',
+    page: 'Station page',
+    terminatingHere: 'Terminating here',
+    trail: 'Breadcrumb',
+    liveMap: 'Live map',
+    departures: 'Departures',
+    notices: 'Station notices',
+    status: 'Line status',
+    busy: 'Busy times',
+    day: 'Day',
+    busiest: (time: string) => `Usually busiest around ${time}`,
+    now: 'Now',
+    around: 'Getting around',
+    next: 'Next stops',
+    nearby: 'A short walk away',
+    onMap: 'Open on the live map',
+    recentre: 'Back to the station'
+  },
+  facts: {
+    title: 'Facilities',
+    zone: 'Zone',
+    night: 'Night Tube',
+    lifts: 'Lifts',
+    escalators: 'Escalators',
+    byLift: 'By lift',
+    access: 'Step-free access',
+    toilets: 'Toilets',
+    wifi: 'Wi-Fi',
+    address: 'Address',
+    yes: 'Yes',
+    no: 'No'
+  },
+  stations: {
+    title: 'Stations',
+    heading: 'Every station, A to Z',
+    intro: (count: string) =>
+      `All ${count} stations on the map, each with its live departures, busy times and the trains on the way.`,
+    letters: 'Jump to a letter'
   },
   train: {
     gone: "That train's gone",

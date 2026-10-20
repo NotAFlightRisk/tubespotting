@@ -27,7 +27,9 @@ export default {
       one: 'Mappa della metropolitana di Londra con # treno in movimento in tempo reale',
       other: 'Mappa della metropolitana di Londra con # treni in movimento in tempo reale'
     },
-    keys: 'Le frecce spostano la mappa, più e meno cambiano lo zoom. L’elenco delle linee, la ricerca e i tabelloni delle stazioni hanno tutto ciò che mostra la mappa.'
+    keys: 'Le frecce spostano la mappa, più e meno cambiano lo zoom. L’elenco delle linee, la ricerca e i tabelloni delle stazioni hanno tutto ciò che mostra la mappa.',
+    station: (station: string) =>
+      `Mappa in tempo reale intorno a ${station}, con le sue linee e i suoi treni in evidenza`
   },
   page: {
     search: 'Cerca',
@@ -70,7 +72,44 @@ export default {
     terminating: 'Nessuna partenza in elenco, solo treni che terminano qui.',
     arrivingNow: 'Il prossimo arriva adesso.',
     arrivingIn: (time: string) => `Il prossimo arriva tra ${time}.`,
-    none: 'Al momento non ci sono treni in arrivo qui.'
+    none: 'Al momento non ci sono treni in arrivo qui.',
+    page: 'Pagina della stazione',
+    terminatingHere: 'Termina qui',
+    trail: 'Percorso di navigazione',
+    liveMap: 'Mappa in tempo reale',
+    departures: 'Partenze',
+    notices: 'Avvisi della stazione',
+    status: 'Stato delle linee',
+    busy: 'Affollamento',
+    day: 'Giorno',
+    busiest: (time: string) => `Di solito più affollata verso le ${time}`,
+    now: 'Adesso',
+    around: 'Nei dintorni',
+    next: 'Prossime fermate',
+    nearby: 'A due passi',
+    onMap: 'Apri sulla mappa in tempo reale',
+    recentre: 'Torna alla stazione'
+  },
+  facts: {
+    title: 'Servizi',
+    zone: 'Zona',
+    night: 'Night Tube',
+    lifts: 'Ascensori',
+    escalators: 'Scale mobili',
+    byLift: 'Con ascensore',
+    access: 'Accesso senza gradini',
+    toilets: 'Bagni',
+    wifi: 'Wi-Fi',
+    address: 'Indirizzo',
+    yes: 'Sì',
+    no: 'No'
+  },
+  stations: {
+    title: 'Stazioni',
+    heading: 'Tutte le stazioni, dalla A alla Z',
+    intro: (count: string) =>
+      `Tutte le ${count} stazioni della mappa, ognuna con partenze in tempo reale, affollamento e treni in arrivo.`,
+    letters: 'Vai a una lettera'
   },
   train: {
     gone: 'Quel treno non c’è più',

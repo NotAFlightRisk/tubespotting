@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Tracked } from '#lib/fleet.js';
   import { count, t } from '#lib/i18n/i18n.svelte.js';
-  import type { Line } from '#lib/lines.js';
+  import { colourOf, inkOf, type Line } from '#lib/lines.js';
   import { callsApart, stations } from '#lib/network.js';
   import { minutes, nextCall, tone, whereIs } from '#lib/status.js';
   import type { LineStatus } from '#lib/types.js';
@@ -36,11 +36,7 @@
   });
 </script>
 
-<div
-  class="detail"
-  style:--line={line.id === 'northern' ? 'var(--northern)' : line.colour}
-  style:--ink={line.id === 'northern' ? 'var(--paper)' : line.ink}
->
+<div class="detail" style:--line={colourOf(line)} style:--ink={inkOf(line)}>
   <h2>{line.name}</h2>
   <p class="status {feeling}">{status?.status ?? t.line.checking}</p>
   {#if status?.reason}<p class="reason">{status.reason}</p>{/if}

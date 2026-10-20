@@ -1,5 +1,5 @@
 import data from './data/network.json' with { type: 'json' };
-import type { LineId } from './lines.js';
+import { LINE_IDS, type LineId } from './lines.js';
 
 export interface Point {
   x: number;
@@ -213,5 +213,78 @@ export const travelTime = (line: LineId, from: number, to: number) =>
     for (let i = 1; i < path.length; i++) seconds += runTime(line, path[i - 1], path[i]);
     return seconds;
   });
+
+export interface Place {
+  slug: string;
+  name: string;
+  /** More than one where a hub has stations side by side under the one name */
+  members: Station[];
+  lines: LineId[];
+}
+
+const slugify = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/'/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+
+// a hub's stations that share a name are one place to anyone using them
+const grouped = new Map<string, Station[]>();
+for (const station of stations) {
+  const key = `${station.hub ?? station.id}|${station.name}`;
+  grouped.set(key, [...(grouped.get(key) ?? []), station]);
+}
+const taken = new Map<string, number>();
+for (const [first] of grouped.values()) {
+  const slug = slugify(first.name);
+  taken.set(slug, (taken.get(slug) ?? 0) + 1);
+}
+
+/** Every station under its own name, which is what each gets a page for */
+export const places: Place[] = [...grouped.values()].map((members) => {
+  const lines = LINE_IDS.filter((line) => members.some((s) => s.lines.includes(line)));
+  const slug = slugify(members[0].name);
+  // the odd name two separate stations share takes the first line to tell them apart
+  return {
+    slug: taken.get(slug)! > 1 ? `${slug}-${lines[0]}` : slug,
+    name: members[0].name,
+    members,
+    lines
+  };
+});
+
+const placeByStation = new Map(places.flatMap((place) => place.members.map((s) => [s, place])));
+
+export const placeOf = (index: number) => placeByStation.get(stations[index])!;
+
+export const placeBySlug = new Map(places.map((place) => [place.slug, place]));
+
+/** Where trains call next either way along each of a place's lines, fast ones included */
+export function neighbours(place: Place) {
+  return place.lines.map((line) => {
+    const next = new Map<Place, number>();
+    for (const from of place.members) {
+      for (const to of routeGraph.get(line)?.get(from.index) ?? []) {
+        const there = placeOf(to);
+        if (there !== place && !next.has(there)) next.set(there, runTime(line, from.index, to));
+      }
+    }
+    const stops = [...next].map(([place, seconds]) => ({ place, seconds }));
+    return { line, next: stops.sort((a, b) => a.seconds - b.seconds) };
+  });
+}
+
+const apart = (a: Place, b: Place) =>
+  Math.min(...a.members.flatMap((m) => b.members.map((n) => distance(m, n))));
+
+/** Other places within so many metres as the crow flies, nearest first */
+export const nearby = (place: Place, metres: number) =>
+  places
+    .filter((other) => other !== place)
+    .map((other) => ({ place: other, metres: apart(place, other) }))
+    .filter((near) => near.metres <= metres)
+    .sort((a, b) => a.metres - b.metres);
 
 export const generated = data.generated;

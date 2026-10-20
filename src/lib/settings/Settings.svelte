@@ -17,9 +17,10 @@
 
   interface Props {
     zoom: number;
-    located: boolean;
+    located?: boolean;
     onzoom: (zoom: number) => void;
-    onlocate: (on: boolean) => void;
+    /** Left out where the map doesn't show where someone is, which hides the switch */
+    onlocate?: (on: boolean) => void;
     onclose: () => void;
   }
 
@@ -89,7 +90,9 @@
         bind:value={() => Math.round(zoom * 100), (percent) => onzoom(percent / 100)}
       />
       <Chips {...t.settings.modes} options={modes} bind:value={settings.modes} />
-      <Switch {...t.settings.locate} bind:checked={() => located, onlocate} />
+      {#if onlocate}
+        <Switch {...t.settings.locate} bind:checked={() => !!located, onlocate} />
+      {/if}
       <Segmented {...t.settings.refresh} options={refreshes} bind:value={settings.refresh} />
     </div>
 

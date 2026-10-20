@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Tracked } from '#lib/fleet.js';
   import { t } from '#lib/i18n/i18n.svelte.js';
-  import { lineById } from '#lib/lines.js';
+  import { colourOf, inkOf, lineById } from '#lib/lines.js';
   import { stations } from '#lib/network.js';
   import { minutes, whereIs } from '#lib/status.js';
   import Icon from './Icon.svelte';
@@ -32,11 +32,7 @@
   <h2>{t.train.gone}</h2>
   <p class="quiet">{t.train.goneWhy}</p>
 {:else}
-  <div
-    class="train"
-    style:--line={line.id === 'northern' ? 'var(--northern)' : line.colour}
-    style:--ink={line.id === 'northern' ? 'var(--paper)' : line.ink}
-  >
+  <div class="train" style:--line={colourOf(line)} style:--ink={inkOf(line)}>
     <header>
       <h2>
         <span class="line">{line.name}</span>
