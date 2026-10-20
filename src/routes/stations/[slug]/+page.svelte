@@ -14,6 +14,7 @@
   import { live } from '#lib/live.svelte.js';
   import TubeMap, { type Tap } from '#lib/map/TubeMap.svelte';
   import { placeBySlug, placeOf, stations } from '#lib/network.js';
+  import Settings from '#lib/settings/Settings.svelte';
   import { load, looks, settings } from '#lib/settings/settings.svelte.js';
   import Around from '#lib/station/Around.svelte';
   import Busy from '#lib/station/Busy.svelte';
@@ -38,6 +39,8 @@
 
   let map: TubeMap;
   let picked = $state<string | null>(null);
+  let zoom = $state(0);
+  let configuring = $state(false);
   let notices = $state<Record<string, string[]>>({});
 
   const focus = $derived({
@@ -47,10 +50,15 @@
     train: picked,
     alone: true
   });
-  const said = $derived([...new Set(place.members.flatMap((s) => notices[s.id] ?? []))]);
+  // TfL files a line's disruption under each of its stations too, where Line status says it already
+  const said = $derived.by(() => {
+    const reasons = new Set(live.snapshot?.status.map((s) => s.reason));
+    const all = new Set(place.members.flatMap((s) => notices[s.id] ?? []));
+    return [...all].filter((notice) => !reasons.has(notice));
+  });
   // with a column to spare, notices go at the top of it rather than in a long line over both;
   // they only ever arrive after the page has opened, so the server never has to guess
-  const wide = new MediaQuery('min-width: 1440px');
+  const wide = new MediaQuery('min-width: 960px');
 
   const recentre = (instant = false) => map.flyTo(place.members, 0.09, instant);
 
@@ -113,7 +121,17 @@
           <li aria-current="page">{place.name}</li>
         </ol>
       </nav>
-      <h1>{place.name}</h1>
+      <div class="title floating">
+        <h1>{place.name}</h1>
+        <button
+          type="button"
+          aria-label={t.page.settings}
+          aria-haspopup="dialog"
+          onclick={() => (configuring = true)}
+        >
+          <Icon name="settings" />
+        </button>
+      </div>
       <LineChips lines={place.lines} />
       {#if data.facts?.zone || data.facts?.night}
         <p class="tags">
@@ -127,6 +145,7 @@
     <div class="view">
       <TubeMap
         bind:this={map}
+        bind:level={zoom}
         {live}
         {focus}
         follow={false}
@@ -135,6 +154,7 @@
         dark={looks.dark}
         calm={looks.calm}
         you={null}
+        inPage
         label={t.map.station(place.name)}
         {onpick}
         onwander={() => {}}
@@ -175,6 +195,10 @@
   </main>
 </div>
 
+{#if configuring}
+  <Settings {zoom} onzoom={(level) => map.zoomTo(level)} onclose={() => (configuring = false)} />
+{/if}
+
 <style>
   .station {
     min-height: 100dvh;
@@ -201,6 +225,13 @@
       content: '›' / '';
       padding: 0 var(--space-2);
     }
+  }
+
+  .title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
   }
 
   h1 {
@@ -270,33 +301,33 @@
     }
   }
 
-  /* the map takes the rest of the screen beside the column, staying put as it scrolls, and as
-     it only shows a line or two the column grows with the screen to give the boards room */
+  /* the map runs across the top third, with the boards down the left under it */
   @media (min-width: 960px) {
-    .station {
-      --column: clamp(440px, 40vw, 720px);
-      width: var(--column);
-      border-right: 1px solid var(--rule);
-      transition: width 320ms var(--ease-out);
+    main {
+      display: flex;
+      flex-direction: column;
     }
 
     .view {
-      position: fixed;
-      inset: 0 0 0 var(--column);
-      height: auto;
-      border: 0;
-      transition: left 320ms var(--ease-out);
+      order: -1;
+      height: max(280px, 100svh / 3);
+      border-top: 0;
     }
-  }
 
-  /* a big screen has room for the boards and everything else side by side, with the map after */
-  @media (min-width: 1440px) {
-    .station {
-      --column: calc(100vw * 2 / 3);
+    .intro,
+    .sections {
+      width: 100%;
+      max-width: 1440px;
+      margin-inline: auto;
+      padding-inline: var(--space-6);
+    }
+
+    .intro {
+      padding-top: var(--space-5);
     }
 
     .sections {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
       align-items: start;
       column-gap: var(--space-6);
     }

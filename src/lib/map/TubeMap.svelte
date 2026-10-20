@@ -36,6 +36,8 @@
     level?: number;
     label: string;
     you: Point | null;
+    /** Part of a page that scrolls past it, so a wheel scrolls on and only ctrl or a pinch zooms */
+    inPage?: boolean;
     onpick: (tap: Tap) => void;
     onwander: () => void;
   }
@@ -51,6 +53,7 @@
     level = $bindable(0),
     label,
     you,
+    inPage = false,
     onpick,
     onwander
   }: Props = $props();
@@ -293,6 +296,9 @@
       .scaleExtent([FURTHEST, CLOSEST])
       .constrain(constrain)
       .tapDistance(30)
+      .filter((event) =>
+        event.type === 'wheel' ? event.ctrlKey || !inPage : !event.ctrlKey && !event.button
+      )
       .on('zoom', (event) => {
         transform = event.transform;
         level = Math.log(transform.k / FURTHEST) / Math.log(CLOSEST / FURTHEST);

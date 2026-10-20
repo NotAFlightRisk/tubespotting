@@ -95,11 +95,8 @@
     color: var(--text-muted);
   }
 
-  /* side by side where there's room, as both ways from a platform pair up at a real station */
   .boards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
-    align-items: start;
     gap: var(--space-4);
     margin-top: var(--space-4);
   }
