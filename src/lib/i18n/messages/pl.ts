@@ -100,6 +100,7 @@ export default {
     allNight: 'Całą noc',
     via: (place: string) => `przez ${place}`,
     destination: 'Kierunek',
+    noTimes: 'Brak godzin od TfL na ten dzień',
     busy: 'Natężenie ruchu',
     day: 'Dzień',
     busiest: (time: string) => `Zwykle najwięcej osób około ${time}`,

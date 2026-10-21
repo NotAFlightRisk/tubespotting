@@ -42,17 +42,24 @@
         <tr>
           <th scope="rowgroup" colspan="3" style:--line={colourOf(line)}>{line.name}</th>
         </tr>
-        {#each services as { to, via, days } (to + (via ?? ''))}
-          {@const times = days[day]}
+        <!-- TfL leaves whole days out for some lines, which isn't the same as no trains -->
+        {#if services.some((service) => service.days[day])}
+          {#each services as { to, via, days } (to + (via ?? ''))}
+            {@const times = days[day]}
+            <tr>
+              <th scope="row">
+                {t.line.to(to)}
+                {#if via}<span class="via">{t.station.via(via)}</span>{/if}
+              </th>
+              <td>{times ? say(times[0]) : '–'}</td>
+              <td>{times ? say(times[1]) : '–'}</td>
+            </tr>
+          {/each}
+        {:else}
           <tr>
-            <th scope="row">
-              {t.line.to(to)}
-              {#if via}<span class="via">{t.station.via(via)}</span>{/if}
-            </th>
-            <td>{times ? say(times[0]) : '–'}</td>
-            <td>{times ? say(times[1]) : '–'}</td>
+            <td colspan="3" class="unknown">{t.station.noTimes}</td>
           </tr>
-        {/each}
+        {/if}
       </tbody>
     {/each}
   </table>
@@ -86,6 +93,13 @@
 
   td {
     font-variant-numeric: tabular-nums;
+  }
+
+  .unknown {
+    padding-left: 0;
+    color: var(--text-muted);
+    text-align: left;
+    white-space: normal;
   }
 
   /* each line under its own name, with its colour as on the line list */

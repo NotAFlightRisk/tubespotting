@@ -93,6 +93,7 @@ const en = {
     allNight: 'All night',
     via: (place: string) => `via ${place}`,
     destination: 'Destination',
+    noTimes: 'No times from TfL for this day',
     busy: 'Busy times',
     day: 'Day',
     busiest: (time: string) => `Usually busiest around ${time}`,

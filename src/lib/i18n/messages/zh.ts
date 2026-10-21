@@ -89,6 +89,7 @@ export default {
     allNight: '通宵运营',
     via: (place: string) => `经由 ${place}`,
     destination: '目的地',
+    noTimes: 'TfL 未提供当天的时刻',
     busy: '繁忙时段',
     day: '星期',
     busiest: (time: string) => `通常在${time}左右最繁忙`,

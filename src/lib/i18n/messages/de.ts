@@ -93,6 +93,7 @@ export default {
     allNight: 'Die ganze Nacht',
     via: (place: string) => `über ${place}`,
     destination: 'Ziel',
+    noTimes: 'Keine Zeiten von TfL für diesen Tag',
     busy: 'Stoßzeiten',
     day: 'Tag',
     busiest: (time: string) => `Meist am vollsten gegen ${time}`,
