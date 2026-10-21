@@ -94,8 +94,10 @@ const lineAlpha = (focus: Focus, line: LineId) =>
 const trainAlpha = (focus: Focus, line: LineId) =>
   mix(focus, (picked) => (onPicked(picked, [line]) ? 1 : focus.alone ? 0 : FADED));
 
-const stationAlpha = (focus: Focus, station: Station) =>
-  mix(focus, (picked) => (onPicked(picked, station.lines) ? 1 : FADED));
+const stationAlpha = (focus: Focus, ...members: Station[]) => {
+  const lines = members.flatMap((m) => m.lines);
+  return mix(focus, (picked) => (onPicked(picked, lines) ? 1 : FADED));
+};
 
 interface Marks {
   /** Each station's lines that are on show */
@@ -332,6 +334,7 @@ function drawStations(
   for (const members of hubs) {
     const points = members.map((m) => toScreen(view, layout.at[m.index]));
     if (!points.some((p) => visible(view, p))) continue;
+    ctx.globalAlpha = stationAlpha(focus, ...members);
     for (const [stroke, w] of [
       [palette.ring, width * 1.9 + ring * 2],
       [palette.ringFill, width * 1.9]
