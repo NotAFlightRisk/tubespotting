@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import Closures from '#lib/components/Closures.svelte';
   import Head from '#lib/components/Head.svelte';
   import LineTrains from '#lib/components/LineTrains.svelte';
   import MapPage from '#lib/components/MapPage.svelte';
@@ -9,7 +10,7 @@
   import Diagram from '#lib/line/Diagram.svelte';
   import { diagram, ends } from '#lib/line/diagram.js';
   import { lengthOf, zoneSpan } from '#lib/line/facts.js';
-  import { lineData, lineDescription, lineTitle } from '#lib/line/seo.js';
+  import { lineData, lineDescription, lineImage, lineTitle } from '#lib/line/seo.js';
   import { colourOf, inkOf, LINES, lineById, linesIn } from '#lib/lines.js';
   import { live } from '#lib/live.svelte.js';
   import type { Tap } from '#lib/map/TubeMap.svelte';
@@ -24,7 +25,8 @@
   const calling = $derived(placesOn(line.id));
   const frame = $derived(stations.filter((s) => s.lines.includes(line.id)));
   const others = $derived(LINES.filter((other) => other !== line).map((other) => other.id));
-  const status = $derived(live.snapshot?.status.find((s) => s.id === line.id));
+  const statuses = $derived(live.snapshot?.status ?? data.status ?? []);
+  const status = $derived(statuses.find((s) => s.id === line.id));
   const running = $derived(live.running.filter((train) => train.reading.line === line.id));
   // the sizing up anyone wants first, leaving out the zones where TfL doesn't give them
   const glance = $derived(
@@ -70,6 +72,7 @@
   description={lineDescription(line, drawn)}
   path="/lines/{line.id}"
   data={lineData(line)}
+  {...lineImage(line)}
 />
 
 <MapPage
@@ -95,6 +98,7 @@
   {#snippet intro()}
     <p class="ends">{t.lines.between(list(ends(drawn)))}</p>
     <StatusText {status} />
+    <Closures lines={[line.id]} />
     <dl class="glance">
       {#each glance as [label, value] (label)}
         <div>
@@ -134,7 +138,7 @@
     </section>
     <section aria-labelledby="others">
       <h2 id="others">{t.lines.others}</h2>
-      <StatusList lines={others} status={live.snapshot?.status ?? []} brief />
+      <StatusList lines={others} status={statuses} brief />
     </section>
   {/snippet}
 </MapPage>

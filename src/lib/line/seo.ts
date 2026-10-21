@@ -22,6 +22,11 @@ export function lineDescription(line: Line, { spine }: Diagram) {
   );
 }
 
+export const lineImage = (line: Line) => ({
+  image: `/og/lines/${line.id}.png`,
+  alt: `The ${spoken(line)} in its colour, with how many stations it has and how far it runs`
+});
+
 export const lineData = (line: Line) => [
   breadcrumbs([
     [name, site],

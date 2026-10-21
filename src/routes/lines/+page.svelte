@@ -12,10 +12,12 @@
   import { load } from '#lib/settings/settings.svelte.js';
   import { summary } from '#lib/status.js';
 
+  let { data } = $props();
+
   onMount(load);
   connectLive();
 
-  const status = $derived(live.snapshot?.status ?? []);
+  const status = $derived(live.snapshot?.status ?? data.status ?? []);
   const news = $derived(summary(status));
 </script>
 

@@ -34,6 +34,13 @@ export interface Snapshot {
   status: LineStatus[];
 }
 
+/** A closure TfL has planned, in its words, at the stations it shuts or all the line's if none */
+export interface Closure {
+  line: LineId;
+  text: string;
+  stops: string[];
+}
+
 /** What TfL lists a station as having, where it says */
 export interface Facts {
   zone?: string;
@@ -51,3 +58,14 @@ export interface Facts {
 
 /** How busy a station usually gets, Monday first, hour by hour, out of 100 for its busiest */
 export type Busy = number[][];
+
+/** The trains to one end of a line */
+export interface Service {
+  to: string;
+  /** Which way, where trains take more than one to that end */
+  via?: string;
+  /** Each day from Monday, its first and last train in minutes after midnight, or null for none */
+  days: (number[] | null)[];
+}
+
+export type TrainTimes = Partial<Record<LineId, Service[]>>;

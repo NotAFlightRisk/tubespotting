@@ -20,6 +20,7 @@ const formats = $derived.by(() => {
     // a made-up day in UTC, so a weekday or an hour reads the same wherever someone is
     weekday: new Intl.DateTimeFormat(tag, { weekday: 'long', timeZone: 'UTC' }),
     hour: new Intl.DateTimeFormat(tag, { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' }),
+    time: new Intl.DateTimeFormat(tag, { timeStyle: 'short', timeZone: 'UTC' }),
     metres: new Intl.NumberFormat(tag, { style: 'unit', unit: 'meter' }),
     kilometres: new Intl.NumberFormat(tag, {
       style: 'unit',
@@ -37,6 +38,8 @@ export const clock = (at: number) => formats.clock.format(at);
 /** Monday is 0 */
 export const weekday = (day: number) => formats.weekday.format(Date.UTC(2024, 0, 1 + day));
 export const hour = (hour: number) => formats.hour.format(Date.UTC(2024, 0, 1, hour));
+/** As a timetable has it, from minutes after midnight, which can run on past the next one */
+export const time = (minutes: number) => formats.time.format(Date.UTC(2024, 0, 1, 0, minutes));
 /** To the nearest 10, as a crow-flies distance is only roughly how far it is to walk */
 export const metres = (m: number) => formats.metres.format(Math.round(m / 10) * 10);
 export const kilometres = (m: number) => formats.kilometres.format(m / 1000);

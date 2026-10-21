@@ -1,18 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { hour, t, weekday } from '#lib/i18n/i18n.svelte.js';
+  import { hour, t } from '#lib/i18n/i18n.svelte.js';
   import type { Busy } from '#lib/types.js';
+  import DayHeading from './DayHeading.svelte';
+  import { londonNow } from './london.js';
 
-  let { busy }: { busy: Busy } = $props();
+  let { busy, slug }: { busy: Busy; slug: string } = $props();
 
-  const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const LABELLED = [6, 9, 12, 15, 18, 21];
-  const LONDON = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/London',
-    weekday: 'short',
-    hour: 'numeric',
-    hourCycle: 'h23'
-  });
+  // how far off the usual for the hour, out of 100 for the busiest, before it's worth a mention
+  const MARGIN = 10;
 
   // which day it is in London is only known once it's open, so nothing's shown until then
   let today = $state<{ day: number; hour: number } | null>(null);
@@ -21,25 +18,41 @@
   const hours = $derived(busy[day]);
   const peak = $derived(hours.indexOf(Math.max(...hours)));
 
+  const countNow = (station: string): Promise<number | null> =>
+    fetch(`/api/crowding/${station}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .catch(() => null);
+
+  // asked for once it's open, and again for another station's page
+  const counted = $derived(today && countNow(slug));
+
+  function compare(now: number | null) {
+    if (now === null || !today) return null;
+    const usual = busy[today.day][today.hour];
+    return now > usual + MARGIN ? 'busier' : now < usual - MARGIN ? 'quieter' : 'usual';
+  }
+
   onMount(() => {
-    const parts = Object.fromEntries(LONDON.formatToParts().map((p) => [p.type, p.value]));
-    today = { day: DAYS.indexOf(parts.weekday), hour: Number(parts.hour) };
+    today = londonNow();
     day = today.day;
   });
 </script>
 
 <section aria-labelledby="busy">
-  <div class="top">
-    <h2 id="busy">{t.station.busy}</h2>
-    <select aria-label={t.station.day} bind:value={day} disabled={!today}>
-      {#each DAYS as _, i (i)}
-        <option value={i}>{weekday(i)}</option>
-      {/each}
-    </select>
-  </div>
+  <DayHeading id="busy" title={t.station.busy} bind:day disabled={!today} />
   <div class="chart">
     {#if today}
       <p>{t.station.busiest(hour(peak))}</p>
+      <p class="live" aria-live="polite">
+        {#await counted then now}
+          {@const compared = day === today.day && compare(now)}
+          {#if compared}
+            <span data-tone={compared === 'busier' ? 'warn' : 'good'}>
+              {t.station.crowding[compared]}
+            </span>
+          {/if}
+        {/await}
+      </p>
       <ol aria-hidden="true">
         {#each hours as level, h (h)}
           <li class:now={day === today.day && h === today.hour} style:--level="{level}%">
@@ -54,35 +67,36 @@
 </section>
 
 <style>
-  .top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-
-    h2 {
-      margin: 0;
-    }
-  }
-
-  select {
-    min-height: 36px;
-    padding: 0 var(--space-2);
-    border: 1px solid var(--rule);
-    border-radius: var(--radius-small);
-    background: var(--surface);
-    color: var(--text);
-    font: inherit;
-  }
-
   /* the same height before and after it's drawn, so nothing jumps */
   .chart {
-    min-height: 152px;
+    display: flow-root;
+    min-height: 164px;
   }
 
   p {
     margin: var(--space-2) 0 var(--space-3);
     color: var(--text-muted);
+  }
+
+  /* a line kept for how busy it is now, as TfL's count can come in after the chart */
+  .live {
+    min-height: 1lh;
+    margin-top: calc(-1 * var(--space-2));
+    color: var(--text);
+
+    span {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    span::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--tone);
+    }
   }
 
   ol {

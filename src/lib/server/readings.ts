@@ -8,7 +8,7 @@ import {
   stations,
   travelTime
 } from '#lib/network.js';
-import type { LineStatus, Stop, TrainReading } from '#lib/types.js';
+import type { Closure, LineStatus, Stop, TrainReading } from '#lib/types.js';
 
 export interface Prediction {
   vehicleId?: string;
@@ -335,12 +335,15 @@ interface RawLineStatus {
   statusSeverity: number;
   statusSeverityDescription: string;
   reason?: string;
+  validityPeriods?: { isNow: boolean }[];
   disruption?: {
+    category?: string;
     affectedRoutes?: { routeSectionNaptanEntrySequence?: { stopPoint: { id: string } }[] }[];
+    affectedStops?: { naptanId: string }[];
   };
 }
 
-interface RawStatus {
+export interface RawStatus {
   id: string;
   lineStatuses?: RawLineStatus[];
 }
@@ -390,17 +393,45 @@ export interface RawNotice {
   description: string;
 }
 
-/** TfL's notices for each of our stations, minus the name in capitals most of them lead with */
+/** TfL's words without the heading most of them lead with, in capitals or naming the line */
+const unheaded = (text: string) =>
+  text
+    .replace(/^(?:[A-Z0-9 &'.,()/-]+|(?:[\w&'-]+ ){1,3}[Ll]ine):\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/** TfL's notices for each of our stations */
 export function readNotices(raw: RawNotice[]): Record<string, string[]> {
   const notices: Record<string, string[]> = {};
   for (const { atcoCode, description } of raw) {
     if (!stationById.has(atcoCode)) continue;
-    const text = description
-      .replace(/^[A-Z0-9 &'.,()/-]+:\s*/, '')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const text = unheaded(description);
     const said = (notices[atcoCode] ??= []);
     if (text && !said.includes(text)) said.push(text);
   }
   return notices;
+}
+
+// the when and where, leaving the rest to TfL's own site
+const firstSentence = (text: string) => text.match(/^.+?(?<!\bSt)\.(?=\s|$)/)?.[0] ?? text;
+
+/** Closures TfL has planned, but not ones on now, which the line's status already says */
+export function readClosures(raw: RawStatus[]): Closure[] {
+  const closures: Closure[] = [];
+  for (const { id, lineStatuses = [] } of raw) {
+    if (!isLineId(id)) continue;
+    for (const { statusSeverity, reason, validityPeriods = [], disruption } of lineStatuses) {
+      if (!SHUT.has(statusSeverity) || !reason || disruption?.category === 'RealTime') continue;
+      if (validityPeriods.some((period) => period.isNow)) continue;
+      const said = firstSentence(unheaded(reason));
+      const text = said.charAt(0).toUpperCase() + said.slice(1);
+      if (!text) continue;
+      const stops = (disruption?.affectedStops ?? []).map((stop) => stop.naptanId);
+      // TfL can file one closure more than once, each time with some of its stops
+      const same = closures.find((closure) => closure.line === id && closure.text === text);
+      if (same) same.stops = [...new Set([...same.stops, ...stops])];
+      else closures.push({ line: id, text, stops });
+    }
+  }
+  return closures;
 }

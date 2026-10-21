@@ -45,6 +45,8 @@
     "d3-zoom": "^3.0.0",
     "prettier": "^3.9.10",
     "prettier-plugin-svelte": "^4.1.1",
+    "satori": "^0.33.5",
+    "sharp": "^0.35.5",
     "svelte": "^5.57.2",
     "svelte-check": "^4.7.6",
     "typescript": "^6.0.3",

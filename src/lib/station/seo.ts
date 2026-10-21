@@ -20,6 +20,11 @@ const serves = (place: Place) =>
 
 export const stationTitle = (place: Place) => `${titled(place)} station: live departures | ${name}`;
 
+export const stationImage = (place: Place) => ({
+  image: `/og/stations/${place.slug}.png`,
+  alt: `${titled(place)} station on the ${serves(place)}, in the colours of its lines`
+});
+
 export const stationDescription = (place: Place) =>
   `Live departures from ${titled(place)} on the ${serves(place)}, with where each train is now, ` +
   'the line status, busy times and the stations around it.';

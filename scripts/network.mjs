@@ -43,7 +43,8 @@ export async function tfl(path, params = {}) {
     await wait(300);
     const res = await fetch(url, { headers: { accept: 'application/json', 'user-agent': UA } });
     if (res.ok) return res.json();
-    if (res.status !== 429 || attempt === 5) throw new Error(`TfL ${res.status} on ${path}`);
+    if (res.status !== 429 || attempt === 5)
+      throw Object.assign(new Error(`TfL ${res.status} on ${path}`), { status: res.status });
     await wait(15_000 * attempt);
   }
 }
