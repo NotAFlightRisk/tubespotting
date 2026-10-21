@@ -38,8 +38,8 @@
     <ul lang="en">
       {#each closures as { line: id, text } (id + text)}
         {@const line = lineById(id)!}
-        <li style:--line={colourOf(line)}>
-          {#if lines.length > 1}<strong>{line.name}</strong>{/if}
+        <li>
+          {#if lines.length > 1}<strong style:--line={colourOf(line)}>{line.name}</strong>{/if}
           {text}
         </li>
       {/each}
@@ -72,12 +72,21 @@
   }
 
   li {
-    padding-left: var(--space-2);
-    border-left: 3px solid var(--line);
     text-wrap: pretty;
   }
 
+  /* with its colour as on the line list */
   strong {
     margin-right: var(--space-1);
+
+    &::before {
+      content: '';
+      display: inline-block;
+      width: 14px;
+      height: 4px;
+      margin-right: 6px;
+      vertical-align: middle;
+      background: var(--line);
+    }
   }
 </style>
