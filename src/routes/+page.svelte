@@ -466,7 +466,7 @@
     transition: bottom 320ms var(--ease-out);
     pointer-events: none;
 
-    > * {
+    > :global(*) {
       pointer-events: auto;
     }
   }
