@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { MediaQuery } from 'svelte/reactivity';
+  import Closures from '#lib/components/Closures.svelte';
   import Departures from '#lib/components/Departures.svelte';
   import Head from '#lib/components/Head.svelte';
   import LineChips from '#lib/components/LineChips.svelte';
@@ -49,7 +50,7 @@
     const all = new Set(place.members.flatMap((s) => notices[s.id] ?? []));
     return [...all].filter((notice) => !reasons.has(notice));
   });
-  // with a column to spare, notices go at the top of it rather than in a long line over both;
+  // with a column to spare, notices and closures go at the top of it, not in a long line over both;
   // they only ever arrive after the page has opened, so the server never has to guess
   const wide = new MediaQuery('min-width: 960px');
 
@@ -83,6 +84,11 @@
   data={stationData(place, data.facts)}
 />
 
+{#snippet warnings()}
+  <Notices notices={said} />
+  <Closures lines={place.lines} stops={place.members.map((s) => s.id)} />
+{/snippet}
+
 <MapPage
   bind:this={page}
   trail={[
@@ -111,7 +117,7 @@
         {#if data.facts.night}<span>{t.facts.night}</span>{/if}
       </p>
     {/if}
-    {#if !wide.current}<Notices notices={said} />{/if}
+    {#if !wide.current}{@render warnings()}{/if}
   {/snippet}
 
   {#snippet main()}
@@ -131,7 +137,7 @@
   {/snippet}
 
   {#snippet aside()}
-    {#if wide.current}<Notices notices={said} />{/if}
+    {#if wide.current}{@render warnings()}{/if}
     <section aria-labelledby="status">
       <h2 id="status">{t.station.status}</h2>
       <StatusList lines={place.lines} status={live.snapshot?.status ?? []} />

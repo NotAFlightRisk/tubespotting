@@ -4,6 +4,7 @@ import { LINE_IDS, MODES } from '#lib/lines.js';
 import type { LineStatus, Snapshot } from '#lib/types.js';
 import {
   Platforms,
+  readClosures,
   readNotices,
   readStatus,
   readTrains,
@@ -26,6 +27,10 @@ const RETRY = 20_000;
 const OUTAGE = 10 * 60_000;
 // station notices change by the day, not the minute
 const NOTICES_EVERY = 5 * 60_000;
+const CLOSURES_EVERY = 60 * 60_000;
+const DAY = 86_400_000;
+// far enough to take in the next weekend, when most closures are
+const CLOSURES_AHEAD = 7;
 
 async function get<T>(path: string, timeout = TIMEOUT): Promise<T> {
   const url = new URL(BASE + path);
@@ -138,3 +143,11 @@ export const stationNotices = shared(NOTICES_EVERY, () =>
     JSON.stringify(readNotices(raw))
   )
 );
+
+/** Closures planned on every line over the coming week */
+export const plannedClosures = shared(CLOSURES_EVERY, () => {
+  const day = (ahead: number) => new Date(Date.now() + ahead * DAY).toISOString().slice(0, 10);
+  return get<RawStatus[]>(
+    `/Line/${LINE_IDS.join(',')}/Status/${day(0)}/to/${day(CLOSURES_AHEAD)}?detail=true`
+  ).then((raw) => JSON.stringify(readClosures(raw)));
+});

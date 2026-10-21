@@ -5,6 +5,7 @@ export default {
   about: 'À propos',
   close: 'Fermer',
   waiting: 'En attente de TfL…',
+  closures: 'Fermetures prévues',
   checkFront: 'Voir l’avant du train',
   due: 'À l’approche',
   minutes: (n: number) => `${n} min`,

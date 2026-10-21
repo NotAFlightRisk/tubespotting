@@ -34,6 +34,13 @@ export interface Snapshot {
   status: LineStatus[];
 }
 
+/** A closure TfL has planned, in its words, at the stations it shuts or all the line's if none */
+export interface Closure {
+  line: LineId;
+  text: string;
+  stops: string[];
+}
+
 /** What TfL lists a station as having, where it says */
 export interface Facts {
   zone?: string;

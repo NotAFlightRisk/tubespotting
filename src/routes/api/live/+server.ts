@@ -1,16 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { serve } from '#lib/server/serve.js';
 import { live } from '#lib/server/tfl.js';
-import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async () => {
-  const body = await live().catch((err) => {
-    console.error('No reading to serve', err);
-    return error(503, 'TfL is not answering right now');
-  });
-  return new Response(body, {
-    headers: {
-      'content-type': 'application/json',
-      'cache-control': 'public, max-age=0, s-maxage=5'
-    }
-  });
-};
+export const GET = serve(live, 'public, max-age=0, s-maxage=5');

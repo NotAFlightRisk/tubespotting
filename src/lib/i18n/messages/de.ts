@@ -5,6 +5,7 @@ export default {
   about: 'Über',
   close: 'Schließen',
   waiting: 'Warte auf TfL…',
+  closures: 'Geplante Sperrungen',
   checkFront: 'Ziel am Zug ablesen',
   due: 'Sofort',
   minutes: (n: number) => `${n} Min.`,

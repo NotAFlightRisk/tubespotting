@@ -5,6 +5,7 @@ export default {
   about: '关于',
   close: '关闭',
   waiting: '正在等待 TfL…',
+  closures: '计划停运',
   checkFront: '请查看列车车头',
   due: '即将到站',
   minutes: (n: number) => `${n} 分钟`,

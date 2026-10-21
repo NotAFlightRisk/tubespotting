@@ -5,6 +5,7 @@ const en = {
   about: 'About',
   close: 'Close',
   waiting: 'Waiting for TfL…',
+  closures: 'Planned closures',
   checkFront: 'Check front of train',
   due: 'Due',
   minutes: (n: number) => `${n} min`,

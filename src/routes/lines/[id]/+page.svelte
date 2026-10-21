@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import Closures from '#lib/components/Closures.svelte';
   import Head from '#lib/components/Head.svelte';
   import LineTrains from '#lib/components/LineTrains.svelte';
   import MapPage from '#lib/components/MapPage.svelte';
@@ -96,6 +97,7 @@
   {#snippet intro()}
     <p class="ends">{t.lines.between(list(ends(drawn)))}</p>
     <StatusText {status} />
+    <Closures lines={[line.id]} />
     <dl class="glance">
       {#each glance as [label, value] (label)}
         <div>

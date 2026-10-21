@@ -5,6 +5,7 @@ export default {
   about: 'O mapie',
   close: 'Zamknij',
   waiting: 'Czekam na TfL…',
+  closures: 'Planowane zamknięcia',
   checkFront: 'Sprawdź kierunek na pociągu',
   due: 'Wjeżdża',
   minutes: (n: number) => `${n} min`,

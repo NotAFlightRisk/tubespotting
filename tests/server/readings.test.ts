@@ -3,6 +3,7 @@ import { pair, stations } from '#lib/network.js';
 import {
   lastStation,
   Platforms,
+  readClosures,
   readNotices,
   readStatus,
   readTrains
@@ -337,5 +338,51 @@ describe('readNotices', () => {
     expect(
       readNotices([twice, twice, { atcoCode: '490000000000X', description: 'A bus stop.' }])
     ).toEqual({ [BARONS_COURT]: ['No lift service.'] });
+  });
+});
+
+describe('readClosures', () => {
+  const ACTON_TOWN = '940GZZLUACT';
+  const planned = (reason: string, more = {}) => ({
+    statusSeverity: 5,
+    statusSeverityDescription: 'Part Closure',
+    reason,
+    validityPeriods: [{ isNow: false }],
+    disruption: { category: 'PlannedWork', affectedStops: [{ naptanId: '940GZZLUBSC' }] },
+    ...more
+  });
+
+  it('keeps the when and where of closures to come, once each, at every stop TfL names', () => {
+    const sunday = 'Sunday 25 October, no service between Barons Court and Acton Town.';
+    const closures = readClosures([
+      {
+        id: 'district',
+        lineStatuses: [
+          planned(`DISTRICT LINE: ${sunday} Replacement buses run via St. Pancras.`),
+          planned(`DISTRICT LINE: ${sunday}`, {
+            disruption: { category: 'PlannedWork', affectedStops: [{ naptanId: ACTON_TOWN }] }
+          }),
+          planned('DISTRICT LINE: No service while we fix a signal.', {
+            disruption: { category: 'RealTime' }
+          }),
+          planned('DISTRICT LINE: Saturday, no service anywhere.', {
+            validityPeriods: [{ isNow: true }]
+          }),
+          planned('DISTRICT LINE: Saturday, fewer trains.', { statusSeverity: 7 })
+        ]
+      },
+      {
+        id: 'waterloo-city',
+        lineStatuses: [
+          planned('Waterloo & City line: service runs Monday to Friday only.', {
+            disruption: { category: 'Information' }
+          })
+        ]
+      }
+    ]);
+    expect(closures).toEqual([
+      { line: 'district', text: sunday, stops: ['940GZZLUBSC', ACTON_TOWN] },
+      { line: 'waterloo-city', text: 'Service runs Monday to Friday only.', stops: [] }
+    ]);
   });
 });
