@@ -37,6 +37,9 @@ export default {
   page: {
     search: 'Szukaj',
     settings: 'Ustawienia',
+    map: 'Mapa',
+    menu: 'Menu',
+    skip: 'Przejdź do treści',
     trail: 'Ścieżka nawigacji',
     liveMap: 'Mapa na żywo',
     openOnMap: 'Otwórz na mapie na żywo',

@@ -35,6 +35,9 @@ export default {
   page: {
     search: 'Rechercher',
     settings: 'Paramètres',
+    map: 'Carte',
+    menu: 'Menu',
+    skip: 'Aller au contenu',
     trail: 'Fil d’Ariane',
     liveMap: 'Carte en direct',
     openOnMap: 'Ouvrir sur la carte en direct',

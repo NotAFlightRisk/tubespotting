@@ -83,6 +83,11 @@ body {
   overflow: visible;
 }
 
+/* anything a link jumps to there lands clear of the header stuck to the top */
+:root:has(.scrolls) {
+  scroll-padding-top: calc(72px + env(safe-area-inset-top));
+}
+
 body {
   background: var(--paper);
   color: var(--text);

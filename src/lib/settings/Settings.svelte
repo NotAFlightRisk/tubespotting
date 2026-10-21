@@ -16,9 +16,10 @@
   import Switch from './Switch.svelte';
 
   interface Props {
-    zoom: number;
+    zoom?: number;
     located?: boolean;
-    onzoom: (zoom: number) => void;
+    /** Left out where there's no map to zoom, which hides the slider */
+    onzoom?: (zoom: number) => void;
     /** Left out where the map doesn't show where someone is, which hides the switch */
     onlocate?: (on: boolean) => void;
     onclose: () => void;
@@ -85,10 +86,12 @@
         ]}
         bind:value={settings.style}
       />
-      <Slider
-        {...t.settings.zoom}
-        bind:value={() => Math.round(zoom * 100), (percent) => onzoom(percent / 100)}
-      />
+      {#if onzoom && zoom !== undefined}
+        <Slider
+          {...t.settings.zoom}
+          bind:value={() => Math.round(zoom * 100), (percent) => onzoom(percent / 100)}
+        />
+      {/if}
       <Chips {...t.settings.modes} options={modes} bind:value={settings.modes} />
       {#if onlocate}
         <Switch {...t.settings.locate} bind:checked={() => !!located, onlocate} />

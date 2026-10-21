@@ -141,6 +141,7 @@
 
 <style>
   h1 {
+    width: fit-content;
     margin: 0;
     padding: var(--space-1) var(--space-3);
     border-radius: var(--radius-small);

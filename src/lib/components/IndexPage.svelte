@@ -5,7 +5,7 @@
   interface Props {
     heading: string;
     intro?: string;
-    /** At the other end of the header, like the live feed */
+    /** Beside the name in the header, like the live feed */
     header?: Snippet;
     children: Snippet;
   }
@@ -15,7 +15,7 @@
 
 <div class="index scrolls">
   <SiteHeader>{@render header?.()}</SiteHeader>
-  <main>
+  <main id="main">
     <h1>{heading}</h1>
     {#if intro}<p>{intro}</p>{/if}
     {@render children()}

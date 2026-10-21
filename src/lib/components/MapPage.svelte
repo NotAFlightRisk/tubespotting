@@ -4,7 +4,6 @@
   import { connectLive, live } from '#lib/live.svelte.js';
   import TubeMap, { type Tap } from '#lib/map/TubeMap.svelte';
   import type { Point } from '#lib/network.js';
-  import Settings from '#lib/settings/Settings.svelte';
   import { load, looks, settings } from '#lib/settings/settings.svelte.js';
   import Feed from './Feed.svelte';
   import Icon from './Icon.svelte';
@@ -53,7 +52,6 @@
 
   let map: TubeMap;
   let zoom = $state(0);
-  let configuring = $state(false);
 
   export const flyTo = (points: Point[]) => map.flyTo(points, closest);
 
@@ -72,9 +70,9 @@
 </script>
 
 <div class="page scrolls">
-  <SiteHeader><Feed {trains} /></SiteHeader>
+  <SiteHeader {zoom} onzoom={(level) => map.zoomTo(level)}><Feed {trains} /></SiteHeader>
 
-  <main>
+  <main id="main">
     <div class="intro">
       <nav aria-label={t.page.trail}>
         <ol class="trail">
@@ -85,17 +83,7 @@
           {/each}
         </ol>
       </nav>
-      <div class="title floating">
-        {@render heading()}
-        <button
-          type="button"
-          aria-label={t.page.settings}
-          aria-haspopup="dialog"
-          onclick={() => (configuring = true)}
-        >
-          <Icon name="settings" />
-        </button>
-      </div>
+      {@render heading()}
       {@render intro?.()}
     </div>
 
@@ -134,10 +122,6 @@
   </main>
 </div>
 
-{#if configuring}
-  <Settings {zoom} onzoom={(level) => map.zoomTo(level)} onclose={() => (configuring = false)} />
-{/if}
-
 <style>
   .page {
     min-height: 100dvh;
@@ -164,13 +148,6 @@
       content: '›' / '';
       padding: 0 var(--space-2);
     }
-  }
-
-  .title {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
   }
 
   .view {

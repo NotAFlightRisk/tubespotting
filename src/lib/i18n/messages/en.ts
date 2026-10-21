@@ -35,6 +35,9 @@ const en = {
   page: {
     search: 'Search',
     settings: 'Settings',
+    map: 'Map',
+    menu: 'Menu',
+    skip: 'Skip to content',
     trail: 'Breadcrumb',
     liveMap: 'Live map',
     openOnMap: 'Open on the live map',

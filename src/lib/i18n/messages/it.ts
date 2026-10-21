@@ -35,6 +35,9 @@ export default {
   page: {
     search: 'Cerca',
     settings: 'Impostazioni',
+    map: 'Mappa',
+    menu: 'Menu',
+    skip: 'Vai al contenuto',
     trail: 'Percorso di navigazione',
     liveMap: 'Mappa in tempo reale',
     openOnMap: 'Apri sulla mappa in tempo reale',

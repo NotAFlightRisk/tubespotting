@@ -70,8 +70,6 @@
     border-bottom: 1px solid var(--rule);
     font: 24px/1.1 var(--font-display);
     color: var(--station-ink);
-    /* clear of the header when a letter jumps here */
-    scroll-margin-top: 72px;
   }
 
   .list {

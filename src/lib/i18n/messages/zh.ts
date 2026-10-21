@@ -31,6 +31,9 @@ export default {
   page: {
     search: '搜索',
     settings: '设置',
+    map: '地图',
+    menu: '菜单',
+    skip: '跳到主要内容',
     trail: '导航路径',
     liveMap: '实时地图',
     openOnMap: '在实时地图上打开',

@@ -7,6 +7,7 @@
     minus: 'M5 12h14',
     locate: 'M12 4v3m0 10v3M4 12h3m10 0h3M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z',
     close: 'M6 6l12 12M18 6 6 18',
+    menu: 'M4 7h16M4 12h16M4 17h16',
     back: 'M15 5l-7 7 7 7',
     forward: 'M9 5l7 7-7 7',
     roundel: 'M12 6a6 6 0 1 1 0 12 6 6 0 0 1 0-12ZM3 12h18',
