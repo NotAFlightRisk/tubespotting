@@ -12,6 +12,7 @@ import {
   type RawNotice,
   type RawStatus
 } from './readings.js';
+import type { Crowding } from './places.js';
 import { report } from './report.js';
 
 const BASE = 'https://api.tfl.gov.uk';
@@ -31,6 +32,8 @@ const CLOSURES_EVERY = 60 * 60_000;
 const DAY = 86_400_000;
 // far enough to take in the next weekend, when most closures are
 const CLOSURES_AHEAD = 7;
+// TfL counts again every few minutes
+const CROWDING_EVERY = 2 * 60_000;
 
 async function get<T>(path: string, timeout = TIMEOUT): Promise<T> {
   const url = new URL(BASE + path);
@@ -151,3 +154,21 @@ export const plannedClosures = shared(CLOSURES_EVERY, () => {
     `/Line/${LINE_IDS.join(',')}/Status/${day(0)}/to/${day(CLOSURES_AHEAD)}?detail=true`
   ).then((raw) => JSON.stringify(readClosures(raw)));
 });
+
+interface RawCrowding {
+  dataAvailable: boolean;
+  percentageOfBaseline: number;
+}
+
+const crowds = new Map<string, () => Promise<string>>();
+
+/** How busy a station is right now, out of 100 for its usual busiest hour, or null if TfL can't say */
+export function crowdingNow({ id, peak }: Crowding) {
+  if (!crowds.has(id)) {
+    const level = (now: RawCrowding) =>
+      now.dataAvailable ? Math.round((now.percentageOfBaseline / peak) * 100) : null;
+    const read = () => get<RawCrowding>(`/crowding/${id}/Live`).then(level).then(JSON.stringify);
+    crowds.set(id, shared(CROWDING_EVERY, read));
+  }
+  return crowds.get(id)!();
+}

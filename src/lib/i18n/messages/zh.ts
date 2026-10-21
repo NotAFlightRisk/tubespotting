@@ -92,6 +92,11 @@ export default {
     busy: '繁忙时段',
     day: '星期',
     busiest: (time: string) => `通常在${time}左右最繁忙`,
+    crowding: {
+      quieter: '目前人流少于平时',
+      usual: '目前人流与平时相当',
+      busier: '目前人流多于平时'
+    },
     now: '现在',
     around: '周边交通',
     next: '下一站',

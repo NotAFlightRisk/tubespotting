@@ -96,6 +96,11 @@ export default {
     busy: 'Stoßzeiten',
     day: 'Tag',
     busiest: (time: string) => `Meist am vollsten gegen ${time}`,
+    crowding: {
+      quieter: 'Gerade weniger los als sonst',
+      usual: 'Gerade so viel los wie sonst',
+      busier: 'Gerade mehr los als sonst'
+    },
     now: 'Jetzt',
     around: 'Umgebung',
     next: 'Nächste Halte',

@@ -96,6 +96,11 @@ const en = {
     busy: 'Busy times',
     day: 'Day',
     busiest: (time: string) => `Usually busiest around ${time}`,
+    crowding: {
+      quieter: 'Quieter than usual right now',
+      usual: 'About as busy as usual right now',
+      busier: 'Busier than usual right now'
+    },
     now: 'Now',
     around: 'Getting around',
     next: 'Next stops',

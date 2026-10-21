@@ -144,7 +144,7 @@
       <StatusList lines={place.lines} status={live.snapshot?.status ?? []} />
     </section>
     {#if data.trains}<FirstLast trains={data.trains} />{/if}
-    {#if data.busy}<Busy busy={data.busy} />{/if}
+    {#if data.busy}<Busy busy={data.busy} slug={place.slug} />{/if}
     <Around {place} />
     {#if data.facts}<Facts facts={data.facts} />{/if}
   {/snippet}

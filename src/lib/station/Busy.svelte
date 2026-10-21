@@ -5,9 +5,11 @@
   import DayHeading from './DayHeading.svelte';
   import { londonNow } from './london.js';
 
-  let { busy }: { busy: Busy } = $props();
+  let { busy, slug }: { busy: Busy; slug: string } = $props();
 
   const LABELLED = [6, 9, 12, 15, 18, 21];
+  // how far off the usual for the hour, out of 100 for the busiest, before it's worth a mention
+  const MARGIN = 10;
 
   // which day it is in London is only known once it's open, so nothing's shown until then
   let today = $state<{ day: number; hour: number } | null>(null);
@@ -15,6 +17,20 @@
 
   const hours = $derived(busy[day]);
   const peak = $derived(hours.indexOf(Math.max(...hours)));
+
+  const countNow = (station: string): Promise<number | null> =>
+    fetch(`/api/crowding/${station}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .catch(() => null);
+
+  // asked for once it's open, and again for another station's page
+  const counted = $derived(today && countNow(slug));
+
+  function compare(now: number | null) {
+    if (now === null || !today) return null;
+    const usual = busy[today.day][today.hour];
+    return now > usual + MARGIN ? 'busier' : now < usual - MARGIN ? 'quieter' : 'usual';
+  }
 
   onMount(() => {
     today = londonNow();
@@ -27,6 +43,16 @@
   <div class="chart">
     {#if today}
       <p>{t.station.busiest(hour(peak))}</p>
+      <p class="live" aria-live="polite">
+        {#await counted then now}
+          {@const compared = day === today.day && compare(now)}
+          {#if compared}
+            <span data-tone={compared === 'busier' ? 'warn' : 'good'}>
+              {t.station.crowding[compared]}
+            </span>
+          {/if}
+        {/await}
+      </p>
       <ol aria-hidden="true">
         {#each hours as level, h (h)}
           <li class:now={day === today.day && h === today.hour} style:--level="{level}%">
@@ -43,12 +69,34 @@
 <style>
   /* the same height before and after it's drawn, so nothing jumps */
   .chart {
-    min-height: 152px;
+    display: flow-root;
+    min-height: 164px;
   }
 
   p {
     margin: var(--space-2) 0 var(--space-3);
     color: var(--text-muted);
+  }
+
+  /* a line kept for how busy it is now, as TfL's count can come in after the chart */
+  .live {
+    min-height: 1lh;
+    margin-top: calc(-1 * var(--space-2));
+    color: var(--text);
+
+    span {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    span::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--tone);
+    }
   }
 
   ol {

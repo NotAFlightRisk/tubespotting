@@ -96,6 +96,11 @@ export default {
     busy: 'Affluence',
     day: 'Jour',
     busiest: (time: string) => `Généralement le plus fréquenté vers ${time}`,
+    crowding: {
+      quieter: 'Moins de monde que d’habitude en ce moment',
+      usual: 'Autant de monde que d’habitude en ce moment',
+      busier: 'Plus de monde que d’habitude en ce moment'
+    },
     now: 'Maintenant',
     around: 'Aux alentours',
     next: 'Arrêts suivants',

@@ -103,6 +103,11 @@ export default {
     busy: 'Natężenie ruchu',
     day: 'Dzień',
     busiest: (time: string) => `Zwykle najwięcej osób około ${time}`,
+    crowding: {
+      quieter: 'Teraz mniej osób niż zwykle',
+      usual: 'Teraz tyle osób co zwykle',
+      busier: 'Teraz więcej osób niż zwykle'
+    },
     now: 'Teraz',
     around: 'Okolica',
     next: 'Następne przystanki',

@@ -53,7 +53,7 @@ function factsOf(properties) {
   return Object.fromEntries(Object.entries(facts).filter(([, v]) => v !== undefined && v !== ''));
 }
 
-/** A week of quarter hours averaged into hours, out of 100 for the busiest of them */
+/** A week of quarter hours averaged into hours, out of 100 for the busiest, and what that was */
 function hourly(days) {
   const week = DAYS.map((name) => {
     const bands = days.find((day) => day.dayOfWeek === name)?.timeBands ?? [];
@@ -63,7 +63,10 @@ function hourly(days) {
     });
   });
   const peak = Math.max(...week.flat());
-  return peak > 0 ? week.map((hours) => hours.map((h) => Math.round((h / peak) * 100))) : null;
+  const out = (level) => Math.round((level / peak) * 100);
+  return peak > 0
+    ? { peak: Math.round(peak * 1e4) / 1e4, week: week.map((hours) => hours.map(out)) }
+    : null;
 }
 
 async function main() {
@@ -82,14 +85,17 @@ async function main() {
     console.log(`facts: ${Math.min(i + BATCH, ids.length)} of ${ids.length}`);
   }
 
-  // crowding comes by station, so a place takes the first of its stations TfL counts
+  // crowding comes by station, so a place takes the first of its stations TfL counts, and keeps
+  // which and its busiest hour, to put that station's live count on the same scale
   const busy = {};
+  const crowding = {};
   for (const [id, members] of places) {
     for (const member of members) {
       const { daysOfWeek } = await tfl(`/crowding/${member.id}`).catch(() => ({}));
-      const week = daysOfWeek?.length ? hourly(daysOfWeek) : null;
-      if (!week) continue;
-      busy[id] = week;
+      const counted = daysOfWeek?.length ? hourly(daysOfWeek) : null;
+      if (!counted) continue;
+      busy[id] = counted.week;
+      crowding[id] = { id: member.id, peak: counted.peak };
       break;
     }
   }
@@ -101,7 +107,7 @@ async function main() {
 
   await writeFile(
     OUT,
-    JSON.stringify({ generated: new Date().toISOString(), facts, busy, trains })
+    JSON.stringify({ generated: new Date().toISOString(), facts, busy, crowding, trains })
   );
 }
 
