@@ -340,7 +340,7 @@ interface RawLineStatus {
   };
 }
 
-interface RawStatus {
+export interface RawStatus {
   id: string;
   lineStatuses?: RawLineStatus[];
 }

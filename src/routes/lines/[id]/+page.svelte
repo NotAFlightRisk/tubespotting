@@ -24,7 +24,8 @@
   const calling = $derived(placesOn(line.id));
   const frame = $derived(stations.filter((s) => s.lines.includes(line.id)));
   const others = $derived(LINES.filter((other) => other !== line).map((other) => other.id));
-  const status = $derived(live.snapshot?.status.find((s) => s.id === line.id));
+  const statuses = $derived(live.snapshot?.status ?? data.status ?? []);
+  const status = $derived(statuses.find((s) => s.id === line.id));
   const running = $derived(live.running.filter((train) => train.reading.line === line.id));
   // the sizing up anyone wants first, leaving out the zones where TfL doesn't give them
   const glance = $derived(
@@ -134,7 +135,7 @@
     </section>
     <section aria-labelledby="others">
       <h2 id="others">{t.lines.others}</h2>
-      <StatusList lines={others} status={live.snapshot?.status ?? []} brief />
+      <StatusList lines={others} status={statuses} brief />
     </section>
   {/snippet}
 </MapPage>

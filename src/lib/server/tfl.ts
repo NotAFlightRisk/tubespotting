@@ -1,20 +1,24 @@
 import { TFL_APP_KEY } from '$app/env/private';
 import { waitUntil } from 'cloudflare:workers';
 import { LINE_IDS, MODES } from '#lib/lines.js';
-import type { Snapshot } from '#lib/types.js';
+import type { LineStatus, Snapshot } from '#lib/types.js';
 import {
   Platforms,
   readNotices,
   readStatus,
   readTrains,
   type Prediction,
-  type RawNotice
+  type RawNotice,
+  type RawStatus
 } from './readings.js';
 import { report } from './report.js';
 
 const BASE = 'https://api.tfl.gov.uk';
+const STATUS = `/Line/Mode/${MODES.map((m) => m.id).join(',')}/Status?detail=true`;
 const FRESH = 10_000;
 const TIMEOUT = 15_000;
+// a page only waits so long for TfL before going without
+const PAGE_TIMEOUT = 2_000;
 // a status that's a few minutes old is still news
 const STATUS_EVERY = 60_000;
 const RETRY = 20_000;
@@ -23,12 +27,12 @@ const OUTAGE = 10 * 60_000;
 // station notices change by the day, not the minute
 const NOTICES_EVERY = 5 * 60_000;
 
-async function get<T>(path: string): Promise<T> {
+async function get<T>(path: string, timeout = TIMEOUT): Promise<T> {
   const url = new URL(BASE + path);
   if (TFL_APP_KEY) url.searchParams.set('app_key', TFL_APP_KEY);
   const res = await fetch(url, {
     headers: { accept: 'application/json' },
-    signal: AbortSignal.timeout(TIMEOUT)
+    signal: AbortSignal.timeout(timeout)
   });
   if (!res.ok) throw new Error(`TfL ${res.status} on ${path.split('?')[0]}`);
   return res.json() as Promise<T>;
@@ -44,11 +48,7 @@ async function refresh() {
   const wantStatus = !current || Date.now() - statusAt > STATUS_EVERY;
   const [arrivals, status] = await Promise.allSettled([
     get<Prediction[]>(`/Line/${LINE_IDS.join(',')}/Arrivals`),
-    wantStatus
-      ? get<Parameters<typeof readStatus>[0]>(
-          `/Line/Mode/${MODES.map((m) => m.id).join(',')}/Status?detail=true`
-        )
-      : null
+    wantStatus ? get<RawStatus[]>(STATUS) : null
   ]);
   let lines = current?.snapshot.status ?? [];
   if (status.status === 'fulfilled' && Array.isArray(status.value)) {
@@ -101,19 +101,40 @@ export async function live(): Promise<string> {
   return current.body;
 }
 
-let notices: { until: number; body: Promise<string> } | null = null;
-
-/** Every station's notices, read for everyone at most once every few minutes */
-export function stationNotices(): Promise<string> {
-  if (!notices || Date.now() > notices.until) {
-    const body = get<RawNotice[]>(
-      `/StopPoint/Mode/${MODES.map((m) => m.id).join(',')}/Disruption`
-    ).then((raw) => JSON.stringify(readNotices(raw)));
-    notices = { until: Date.now() + NOTICES_EVERY, body };
-    // a failure's only kept long enough to give TfL a breather
-    body.catch(() => {
-      if (notices?.body === body) notices.until = Date.now() + RETRY;
-    });
-  }
-  return notices.body;
+/** Reads something for everyone at most once every so often, sharing one read while it's out */
+function shared<T>(every: number, read: () => Promise<T>) {
+  let kept: { until: number; value: Promise<T> } | null = null;
+  return () => {
+    if (!kept || Date.now() > kept.until) {
+      const value = read();
+      kept = { until: Date.now() + every, value };
+      // a failure's only kept long enough to give TfL a breather
+      value.catch(() => {
+        if (kept?.value === value) kept.until = Date.now() + RETRY;
+      });
+    }
+    return kept.value;
+  };
 }
+
+// for pages to borrow while there's no fresh reading
+const quickStatus = shared(STATUS_EVERY, () =>
+  get<RawStatus[]>(STATUS, PAGE_TIMEOUT).then(readStatus)
+);
+
+/** How every line's running, for a page to show without waiting long on TfL */
+export async function lineStatus(): Promise<LineStatus[] | null> {
+  const status =
+    current && Date.now() - statusAt < STATUS_EVERY * 2
+      ? current.snapshot.status
+      : await quickStatus().catch(() => null);
+  // which tracks are shut is only for the map, which has its own reading
+  return status?.map(({ closed: _, ...line }) => line) ?? null;
+}
+
+/** Every station's notices */
+export const stationNotices = shared(NOTICES_EVERY, () =>
+  get<RawNotice[]>(`/StopPoint/Mode/${MODES.map((m) => m.id).join(',')}/Disruption`).then((raw) =>
+    JSON.stringify(readNotices(raw))
+  )
+);
