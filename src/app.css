@@ -138,6 +138,23 @@ a {
   white-space: nowrap;
 }
 
+/* how a line's running, as a colour for its words or its dot to take */
+[data-tone] {
+  --tone: var(--text-muted);
+}
+
+[data-tone='good'] {
+  --tone: var(--good);
+}
+
+[data-tone='warn'] {
+  --tone: var(--warn);
+}
+
+[data-tone='bad'] {
+  --tone: var(--bad);
+}
+
 :root[data-calm='true'] {
   *,
   ::before,

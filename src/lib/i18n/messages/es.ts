@@ -29,11 +29,15 @@ export default {
     },
     keys: 'Las flechas mueven el mapa; más y menos acercan y alejan. La lista de líneas, la búsqueda y los paneles de las estaciones tienen todo lo que muestra el mapa.',
     station: (station: string) =>
-      `Mapa en directo de los alrededores de ${station}, con sus líneas y trenes destacados`
+      `Mapa en directo de los alrededores de ${station}, con sus líneas y trenes destacados`,
+    line: (line: string) => `Mapa en directo: ${line} y sus trenes`
   },
   page: {
     search: 'Buscar',
     settings: 'Ajustes',
+    trail: 'Ruta de navegación',
+    liveMap: 'Mapa en directo',
+    openOnMap: 'Abrir en el mapa en directo',
     aboutMap: 'Acerca de este mapa',
     details: 'Detalles',
     back: 'Volver a todas las líneas',
@@ -63,7 +67,8 @@ export default {
     checking: 'Comprobando el estado',
     running: { one: '# tren en servicio', other: '# trenes en servicio' },
     to: (place: string) => `Hacia ${place}`,
-    trainsTo: (place: string) => `Trenes hacia ${place}`
+    trainsTo: (place: string) => `Trenes hacia ${place}`,
+    page: 'Página de la línea'
   },
   station: {
     lines: 'Líneas',
@@ -75,8 +80,6 @@ export default {
     none: 'Ahora mismo no hay trenes previstos aquí.',
     page: 'Página de la estación',
     terminatingHere: 'Finaliza aquí',
-    trail: 'Ruta de navegación',
-    liveMap: 'Mapa en directo',
     departures: 'Salidas',
     notices: 'Avisos de la estación',
     status: 'Estado de las líneas',
@@ -87,7 +90,6 @@ export default {
     around: 'Cómo moverse',
     next: 'Próximas paradas',
     nearby: 'A poca distancia a pie',
-    onMap: 'Abrir en el mapa en directo',
     recentre: 'Volver a la estación'
   },
   facts: {
@@ -110,6 +112,42 @@ export default {
     intro: (count: string) =>
       `Las ${count} estaciones del mapa, cada una con sus salidas en directo, su afluencia y los trenes que llegan.`,
     letters: 'Ir a una letra'
+  },
+  lines: {
+    title: 'Líneas',
+    heading: 'Estado de las líneas de TfL en directo',
+    intro:
+      'Estado en tiempo real de toda la red de TfL. Haz clic en una línea para ver sus datos en directo.',
+    between: (places: string) => `Circula entre ${places}`,
+    length: 'Longitud',
+    interchanges: 'Correspondencias',
+    zones: 'Zonas',
+    now: 'Trenes ahora',
+    hint: 'Los trenes avanzan en directo, apuntando hacia donde van. Elige uno para ver adónde se dirige.',
+    branch: (to: string) => `Ramal a ${to}`,
+    loop: (via: string, at: string) => `Por ${via}, vuelve a la línea en ${at}`,
+    train: (to: string, where: string) => `${to}. ${where}`,
+    trains: 'Trenes por destino',
+    others: 'Otras líneas',
+    recentre: 'Volver a toda la línea'
+  },
+  summary: {
+    checking: 'Comprobando cómo funciona cada línea…',
+    every: 'Servicio normal en todas las líneas.',
+    rest: 'Servicio normal en el resto de líneas.',
+    idle: 'Ahora mismo no circula ningún tren.',
+    lines: { one: 'la línea #', other: 'las líneas #' },
+    dlr: 'el DLR',
+    tram: 'el tranvía',
+    count: { one: '# línea', other: '# líneas' },
+    none: (lines: string) => `Sin servicio en ${lines}.`,
+    part: (lines: string) => `Servicio parcialmente interrumpido en ${lines}.`,
+    severe: (lines: string) => `Retrasos importantes en ${lines}.`,
+    reduced: (lines: string) => `Servicio reducido en ${lines}.`,
+    minor: (lines: string) => `Retrasos leves en ${lines}.`,
+    disruption: (lines: string) => `Incidencias en ${lines}.`,
+    closed: (lines: string) => `Ahora mismo no hay trenes en ${lines}.`,
+    good: (lines: string) => `Servicio normal en ${lines}.`
   },
   train: {
     gone: 'Ese tren ya no está',

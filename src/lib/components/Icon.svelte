@@ -10,6 +10,8 @@
     back: 'M15 5l-7 7 7 7',
     forward: 'M9 5l7 7-7 7',
     roundel: 'M12 6a6 6 0 1 1 0 12 6 6 0 0 1 0-12ZM3 12h18',
+    // a line splitting off another, as down a line's own page
+    branch: 'M8 3v18M8 6c0 5 8 4 8 9v6',
     // station facilities, after TfL's own pictograms
     rings: 'M12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6ZM12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18Z',
     wheelchair:

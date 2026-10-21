@@ -29,11 +29,15 @@ const en = {
     } as Plural,
     keys: 'Arrow keys move the map, plus and minus zoom. The line list, search and station boards have everything the map shows.',
     station: (station: string) =>
-      `Live map around ${station}, with its own lines and trains picked out`
+      `Live map around ${station}, with its own lines and trains picked out`,
+    line: (line: string) => `Live map of the ${line}, with its trains picked out`
   },
   page: {
     search: 'Search',
     settings: 'Settings',
+    trail: 'Breadcrumb',
+    liveMap: 'Live map',
+    openOnMap: 'Open on the live map',
     aboutMap: 'About this map',
     details: 'Details',
     back: 'Back to all lines',
@@ -63,7 +67,8 @@ const en = {
     checking: 'Checking the status',
     running: { one: '# train running', other: '# trains running' } as Plural,
     to: (place: string) => `To ${place}`,
-    trainsTo: (place: string) => `Trains to ${place}`
+    trainsTo: (place: string) => `Trains to ${place}`,
+    page: 'Line page'
   },
   station: {
     lines: 'Lines',
@@ -75,8 +80,6 @@ const en = {
     none: 'No trains due here at the moment.',
     page: 'Station page',
     terminatingHere: 'Terminating here',
-    trail: 'Breadcrumb',
-    liveMap: 'Live map',
     departures: 'Departures',
     notices: 'Station notices',
     status: 'Line status',
@@ -87,7 +90,6 @@ const en = {
     around: 'Getting around',
     next: 'Next stops',
     nearby: 'A short walk away',
-    onMap: 'Open on the live map',
     recentre: 'Back to the station'
   },
   facts: {
@@ -110,6 +112,41 @@ const en = {
     intro: (count: string) =>
       `All ${count} stations on the map, each with its live departures, busy times and the trains on the way.`,
     letters: 'Jump to a letter'
+  },
+  lines: {
+    title: 'Lines',
+    heading: 'Live TfL line status',
+    intro: 'Real-time status across the TfL network. Click a line for live stats.',
+    between: (places: string) => `Runs between ${places}`,
+    length: 'Length',
+    interchanges: 'Interchanges',
+    zones: 'Zones',
+    now: 'Trains now',
+    hint: "Trains move along it live, pointing the way they're heading. Pick one to see where it's going.",
+    branch: (to: string) => `Branch to ${to}`,
+    loop: (via: string, at: string) => `Via ${via}, rejoining at ${at}`,
+    train: (to: string, where: string) => `${to}. ${where}`,
+    trains: 'Trains by destination',
+    others: 'Other lines',
+    recentre: 'Back to the whole line'
+  },
+  summary: {
+    checking: 'Checking how every line is running…',
+    every: 'Good service on every line.',
+    rest: 'Good service on all other lines.',
+    idle: 'No trains are running right now.',
+    lines: { one: 'the # line', other: 'the # lines' } as Plural,
+    dlr: 'the DLR',
+    tram: 'London Trams',
+    count: { one: '# line', other: '# lines' } as Plural,
+    none: (lines: string) => `No service on ${lines}.`,
+    part: (lines: string) => `No service on part of ${lines}.`,
+    severe: (lines: string) => `Severe delays on ${lines}.`,
+    reduced: (lines: string) => `Reduced service on ${lines}.`,
+    minor: (lines: string) => `Minor delays on ${lines}.`,
+    disruption: (lines: string) => `Disruption on ${lines}.`,
+    closed: (lines: string) => `No trains on ${lines} right now.`,
+    good: (lines: string) => `Good service on ${lines}.`
   },
   train: {
     gone: "That train's gone",

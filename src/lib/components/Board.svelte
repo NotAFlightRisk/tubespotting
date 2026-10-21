@@ -4,6 +4,7 @@
   import { tone } from '#lib/status.js';
   import type { LineStatus } from '#lib/types.js';
   import Icon from './Icon.svelte';
+  import Roundel from './Roundel.svelte';
 
   interface Props {
     status: LineStatus[];
@@ -37,7 +38,6 @@
   <ul>
     {#each LINES.filter((line) => shown.has(line.id)) as line (line.id)}
       {@const state = byLine.get(line.id)}
-      {@const feeling = state ? tone(state.severity) : ''}
       <li>
         <button
           type="button"
@@ -47,7 +47,7 @@
           onclick={() => onpick(line.id)}
         >
           <span class="name">{line.name}</span>
-          <span class="state {feeling}">
+          <span class="state" data-tone={state && tone(state.severity)} lang={state && 'en'}>
             <span class="dot" aria-hidden="true"></span>
             {state?.status ?? t.board.checking}
           </span>
@@ -67,17 +67,7 @@
       <span class="label">{t.board.onMap}</span>
       <span class="roundels" aria-hidden="true">
         {#each MODES as mode (mode.id)}
-          <svg
-            class="roundel"
-            class:on={modes.includes(mode.id)}
-            style:--mode={mode.roundel}
-            viewBox="0 0 22 16"
-            width="22"
-            height="16"
-          >
-            <circle cx="11" cy="8" r="6" />
-            <rect x="1" y="6.5" width="20" height="3" />
-          </svg>
+          <Roundel colour={mode.roundel} on={modes.includes(mode.id)} />
         {/each}
       </span>
       <span class="summary">{summary}</span>
@@ -195,23 +185,11 @@
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: var(--text-muted);
+      background: var(--tone, var(--text-muted));
     }
 
-    &.good .dot {
-      background: var(--good);
-    }
-
-    &.warn .dot {
-      background: var(--warn);
-    }
-
-    &.bad {
+    &[data-tone='bad'] {
       color: var(--bad);
-
-      .dot {
-        background: var(--bad);
-      }
     }
   }
 
@@ -325,29 +303,6 @@
 
     .open .chevron {
       rotate: 180deg;
-    }
-
-    /* a mode that's off is faded, so it's clear there's more to switch on */
-    .roundel {
-      --off: color-mix(in srgb, var(--text-muted) 35%, var(--surface));
-
-      circle {
-        fill: none;
-        stroke: var(--off);
-        stroke-width: 2.6;
-      }
-
-      rect {
-        fill: var(--off);
-      }
-
-      &.on circle {
-        stroke: var(--mode);
-      }
-
-      &.on rect {
-        fill: var(--accent);
-      }
     }
 
     /* 0fr to 1fr slides it open to whatever height the switches need */

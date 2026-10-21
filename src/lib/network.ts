@@ -70,6 +70,9 @@ interface LineData {
 
 const lineData = data.lines as unknown as LineData[];
 
+/** Each line's routes as TfL lists them, every call in order */
+export const lineRoutes = new Map(lineData.map((line) => [line.id, line.routes]));
+
 const link = (graph: Map<number, Set<number>>, a: number, b: number) => {
   graph.set(a, (graph.get(a) ?? new Set()).add(b));
   graph.set(b, (graph.get(b) ?? new Set()).add(a));
@@ -260,6 +263,8 @@ const placeByStation = new Map(places.flatMap((place) => place.members.map((s) =
 export const placeOf = (index: number) => placeByStation.get(stations[index])!;
 
 export const placeBySlug = new Map(places.map((place) => [place.slug, place]));
+
+export const placesOn = (line: LineId) => places.filter((place) => place.lines.includes(line));
 
 /** Where trains call next either way along each of a place's lines, fast ones included */
 export function neighbours(place: Place) {

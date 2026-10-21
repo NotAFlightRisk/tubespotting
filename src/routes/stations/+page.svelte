@@ -1,7 +1,7 @@
 <script lang="ts">
   import Head from '#lib/components/Head.svelte';
+  import IndexPage from '#lib/components/IndexPage.svelte';
   import LineChips from '#lib/components/LineChips.svelte';
-  import SiteHeader from '#lib/components/SiteHeader.svelte';
   import { t } from '#lib/i18n/i18n.svelte.js';
   import { name } from '#lib/meta.js';
   import { places, type Place } from '#lib/network.js';
@@ -16,57 +16,30 @@
 
 <Head title="{t.stations.heading} | {name}" description={indexDescription} path="/stations" />
 
-<div class="stations scrolls">
-  <SiteHeader />
-  <main>
-    <h1>{t.stations.heading}</h1>
-    <p>{t.stations.intro(String(places.length))}</p>
-    <nav aria-label={t.stations.letters}>
-      <ul class="letters">
-        {#each byLetter.keys() as letter (letter)}
-          <li><a href="#{letter}">{letter}</a></li>
+<IndexPage heading={t.stations.heading} intro={t.stations.intro(String(places.length))}>
+  <nav aria-label={t.stations.letters}>
+    <ul class="letters">
+      {#each byLetter.keys() as letter (letter)}
+        <li><a href="#{letter}">{letter}</a></li>
+      {/each}
+    </ul>
+  </nav>
+  {#each byLetter as [letter, list] (letter)}
+    <section aria-labelledby={letter}>
+      <h2 id={letter}>{letter}</h2>
+      <ul class="list">
+        {#each list as place (place.slug)}
+          <li>
+            <a href="/stations/{place.slug}">{place.name}</a>
+            <LineChips lines={place.lines} />
+          </li>
         {/each}
       </ul>
-    </nav>
-    {#each byLetter as [letter, list] (letter)}
-      <section aria-labelledby={letter}>
-        <h2 id={letter}>{letter}</h2>
-        <ul class="list">
-          {#each list as place (place.slug)}
-            <li>
-              <a href="/stations/{place.slug}">{place.name}</a>
-              <LineChips lines={place.lines} />
-            </li>
-          {/each}
-        </ul>
-      </section>
-    {/each}
-  </main>
-</div>
+    </section>
+  {/each}
+</IndexPage>
 
 <style>
-  .stations {
-    min-height: 100dvh;
-    background: var(--surface);
-  }
-
-  main {
-    max-width: 960px;
-    margin: 0 auto;
-    padding: var(--space-5) var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom));
-  }
-
-  h1 {
-    margin: 0;
-    font: 30px/1.1 var(--font-display);
-    color: var(--station-ink);
-  }
-
-  p {
-    max-width: 60ch;
-    color: var(--text-muted);
-  }
-
   .letters {
     display: flex;
     flex-wrap: wrap;

@@ -2,6 +2,7 @@
   import { t } from '#lib/i18n/i18n.svelte.js';
   import { LINES, type LineId } from '#lib/lines.js';
   import { places } from '#lib/network.js';
+  import { lineName } from '#lib/status.js';
   import Icon from './Icon.svelte';
 
   interface Props {
@@ -28,7 +29,7 @@
       ...lines.map((line) => ({
         kind: 'line' as const,
         id: line.id,
-        label: t.search.line(line.name),
+        label: lineName(line),
         detail: t.search.kind
       })),
       // one result a place, listing every line between its stations

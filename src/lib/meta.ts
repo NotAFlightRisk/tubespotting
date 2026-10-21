@@ -17,3 +17,15 @@ export const website = {
 
 export const counting = Boolean(import.meta.env.PUBLIC_PLAUSIBLE_SCRIPT);
 export const reporting = Boolean(import.meta.env.PUBLIC_SENTRY_DSN);
+
+/** The way to a page through the site, for search engines to show above its result */
+export const breadcrumbs = (trail: [name: string, url: string][]) => ({
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: trail.map(([name, item], i) => ({
+    '@type': 'ListItem',
+    position: i + 1,
+    name,
+    item
+  }))
+});

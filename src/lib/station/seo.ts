@@ -1,5 +1,6 @@
+import { listed, spoken } from '#lib/line/seo.js';
 import { lineById } from '#lib/lines.js';
-import { name, site } from '#lib/meta.js';
+import { breadcrumbs, name, site } from '#lib/meta.js';
 import { places, type Place } from '#lib/network.js';
 import type { Facts } from '#lib/types.js';
 
@@ -9,12 +10,11 @@ const titled = (place: Place) =>
     ? `${place.name} (${lineById(place.lines[0])!.name})`
     : place.name;
 
-const SPOKEN = new Intl.ListFormat('en-GB');
 const serves = (place: Place) =>
-  SPOKEN.format(
+  listed(
     place.lines.map((id) => {
       const line = lineById(id)!;
-      return line.mode === 'dlr' ? 'DLR' : line.mode === 'tram' ? 'trams' : `${line.name} line`;
+      return line.mode === 'tram' ? 'trams' : spoken(line);
     })
   );
 
@@ -29,11 +29,6 @@ export function stationData(place: Place, facts: Facts | null) {
   const url = `${site}/stations/${place.slug}`;
   const [{ lat, lon }] = place.members;
   const tube = place.lines.some((id) => lineById(id)!.mode === 'tube');
-  const trail = [
-    [name, site],
-    ['Stations', `${site}/stations`],
-    [titled(place), url]
-  ];
   return [
     {
       '@context': 'https://schema.org',
@@ -43,16 +38,11 @@ export function stationData(place: Place, facts: Facts | null) {
       geo: { '@type': 'GeoCoordinates', latitude: lat, longitude: lon },
       ...(facts?.address && { address: facts.address })
     },
-    {
-      '@context': 'https://schema.org',
-      '@type': 'BreadcrumbList',
-      itemListElement: trail.map(([name, item], i) => ({
-        '@type': 'ListItem',
-        position: i + 1,
-        name,
-        item
-      }))
-    }
+    breadcrumbs([
+      [name, site],
+      ['Stations', `${site}/stations`],
+      [titled(place), url]
+    ])
   ];
 }
 
