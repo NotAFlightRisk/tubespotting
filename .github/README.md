@@ -33,7 +33,7 @@ Just open [tubespotting.peng.ly](https://tubespotting.peng.ly/) and drag/ pinch 
 
 - Tap a line on the status board to pick it out and see every train on it
 - Tap a station for its next trains, platform by platform, on a countdown board
-- Every station has its own page, like [`/stations/oxford-circus`](https://tubespotting.peng.ly/stations/oxford-circus), with full departure boards, where each train is now, line status, busy times, the stations around it and its facilities. [`/stations`](https://tubespotting.peng.ly/stations) lists them all
+- Every station has its own page, like [`/stations/oxford-circus`](https://tubespotting.peng.ly/stations/oxford-circus), with full departure boards, where each train is now, line status, planned closures, first and last trains, busy times, the stations around it and its facilities. [`/stations`](https://tubespotting.peng.ly/stations) lists them all
 - Tap a train to see where it's off to and follow it across London
 - Search (or just press `/`) finds any station or line
 - The locate button opens your nearest station. Your location never leaves your device

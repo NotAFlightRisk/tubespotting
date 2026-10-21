@@ -17,6 +17,7 @@
   import Around from '#lib/station/Around.svelte';
   import Busy from '#lib/station/Busy.svelte';
   import Facts from '#lib/station/Facts.svelte';
+  import FirstLast from '#lib/station/FirstLast.svelte';
   import Notices from '#lib/station/Notices.svelte';
   import { stationData, stationDescription, stationTitle } from '#lib/station/seo.js';
   import { nextCall } from '#lib/status.js';
@@ -142,6 +143,7 @@
       <h2 id="status">{t.station.status}</h2>
       <StatusList lines={place.lines} status={live.snapshot?.status ?? []} />
     </section>
+    {#if data.trains}<FirstLast trains={data.trains} />{/if}
     {#if data.busy}<Busy busy={data.busy} />{/if}
     <Around {place} />
     {#if data.facts}<Facts facts={data.facts} />{/if}

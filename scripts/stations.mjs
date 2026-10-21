@@ -1,8 +1,10 @@
 #!/usr/bin/env node
-// Rebuilds src/lib/server/stations.json from TfL: what each station has, and how busy it usually
-// gets through the week, for the station pages. Run it after `npm run network`
+// Rebuilds src/lib/server/stations.json from TfL: what each station has, how busy it usually gets
+// through the week and its first and last trains, for the station pages.
+// Run it after `npm run network`
 import { readFile, writeFile } from 'node:fs/promises';
 import { tfl } from './network.mjs';
+import { trainTimes } from './timetables.mjs';
 
 const NETWORK = new URL('../src/lib/data/network.json', import.meta.url);
 const OUT = new URL('../src/lib/server/stations.json', import.meta.url);
@@ -65,7 +67,7 @@ function hourly(days) {
 }
 
 async function main() {
-  const { stations } = JSON.parse(await readFile(NETWORK, 'utf8'));
+  const { stations, lines } = JSON.parse(await readFile(NETWORK, 'utf8'));
   // a hub's stations share a name, and a page, so TfL's facts for the hub cover them
   const places = Map.groupBy(stations, (s) => s.hub ?? s.id);
   const ids = [...places.keys()];
@@ -91,11 +93,16 @@ async function main() {
       break;
     }
   }
+  const trains = await trainTimes(stations, lines);
   console.log(
-    `${Object.keys(facts).length} with facts, ${Object.keys(busy).length} with busy times`
+    `${Object.keys(facts).length} with facts, ${Object.keys(busy).length} with busy times, ` +
+      `${Object.keys(trains).length} with train times`
   );
 
-  await writeFile(OUT, JSON.stringify({ generated: new Date().toISOString(), facts, busy }));
+  await writeFile(
+    OUT,
+    JSON.stringify({ generated: new Date().toISOString(), facts, busy, trains })
+  );
 }
 
 main().catch((err) => {

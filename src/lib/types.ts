@@ -58,3 +58,14 @@ export interface Facts {
 
 /** How busy a station usually gets, Monday first, hour by hour, out of 100 for its busiest */
 export type Busy = number[][];
+
+/** The trains to one end of a line */
+export interface Service {
+  to: string;
+  /** Which way, where trains take more than one to that end */
+  via?: string;
+  /** Each day from Monday, its first and last train in minutes after midnight, or null for none */
+  days: (number[] | null)[];
+}
+
+export type TrainTimes = Partial<Record<LineId, Service[]>>;
