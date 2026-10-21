@@ -385,4 +385,18 @@ describe('readClosures', () => {
       { line: 'waterloo-city', text: 'Service runs Monday to Friday only.', stops: [] }
     ]);
   });
+
+  it('keeps stops it has no station for, so the closure stays off the rest of the line', () => {
+    const [closure] = readClosures([
+      {
+        id: 'district',
+        lineStatuses: [
+          planned('DISTRICT LINE: Sunday, no service at a siding.', {
+            disruption: { category: 'PlannedWork', affectedStops: [{ naptanId: '9100NOWHERE' }] }
+          })
+        ]
+      }
+    ]);
+    expect(closure.stops).toEqual(['9100NOWHERE']);
+  });
 });

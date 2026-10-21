@@ -426,9 +426,7 @@ export function readClosures(raw: RawStatus[]): Closure[] {
       const said = firstSentence(unheaded(reason));
       const text = said.charAt(0).toUpperCase() + said.slice(1);
       if (!text) continue;
-      const stops = (disruption?.affectedStops ?? [])
-        .map((stop) => stop.naptanId)
-        .filter((stop) => stationById.has(stop));
+      const stops = (disruption?.affectedStops ?? []).map((stop) => stop.naptanId);
       // TfL can file one closure more than once, each time with some of its stops
       const same = closures.find((closure) => closure.line === id && closure.text === text);
       if (same) same.stops = [...new Set([...same.stops, ...stops])];
