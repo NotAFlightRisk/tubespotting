@@ -25,11 +25,18 @@ export default {
   map: {
     label: { other: '伦敦地铁地图，# 趟列车正在实时运行' },
     keys: '方向键移动地图，加号和减号缩放。线路列表、搜索和车站信息板包含地图上的全部内容。',
-    station: (station: string) => `${station}周边的实时地图，突出显示该站的线路和列车`
+    station: (station: string) => `${station}周边的实时地图，突出显示该站的线路和列车`,
+    line: (line: string) => `${line}及其列车的实时地图`
   },
   page: {
     search: '搜索',
     settings: '设置',
+    map: '地图',
+    menu: '菜单',
+    skip: '跳到主要内容',
+    trail: '导航路径',
+    liveMap: '实时地图',
+    openOnMap: '在实时地图上打开',
     aboutMap: '关于此地图',
     details: '详情',
     back: '返回所有线路',
@@ -59,7 +66,8 @@ export default {
     checking: '正在查询运营状态',
     running: { other: '# 趟列车运行中' },
     to: (place: string) => `开往 ${place}`,
-    trainsTo: (place: string) => `开往 ${place} 的列车`
+    trainsTo: (place: string) => `开往 ${place} 的列车`,
+    page: '线路页面'
   },
   station: {
     lines: '线路',
@@ -71,8 +79,6 @@ export default {
     none: '目前本站没有即将到站的列车。',
     page: '车站页面',
     terminatingHere: '在此终到',
-    trail: '导航路径',
-    liveMap: '实时地图',
     departures: '发车',
     notices: '车站通知',
     status: '线路状态',
@@ -83,7 +89,6 @@ export default {
     around: '周边交通',
     next: '下一站',
     nearby: '步行可达',
-    onMap: '在实时地图上打开',
     recentre: '回到车站'
   },
   facts: {
@@ -106,6 +111,41 @@ export default {
     intro: (count: string) =>
       `地图上全部 ${count} 个车站，每站都有实时发车、繁忙时段和即将到站的列车。`,
     letters: '跳转到字母'
+  },
+  lines: {
+    title: '线路',
+    heading: 'TfL 线路实时状态',
+    intro: 'TfL 全网实时状态。点击线路查看实时数据。',
+    between: (places: string) => `连接 ${places}`,
+    length: '长度',
+    interchanges: '换乘站',
+    zones: '区域',
+    now: '当前列车',
+    hint: '列车实时移动，箭头指向行驶方向。选择一列即可查看它开往哪里。',
+    branch: (to: string) => `支线至 ${to}`,
+    loop: (via: string, at: string) => `经 ${via}，在 ${at} 重新汇入`,
+    train: (to: string, where: string) => `${to}。${where}`,
+    trains: '按目的地分列的列车',
+    others: '其他线路',
+    recentre: '返回整条线路'
+  },
+  summary: {
+    checking: '正在查询各线路的运行情况…',
+    every: '所有线路运营正常。',
+    rest: '其他线路运营正常。',
+    idle: '目前没有列车运行。',
+    lines: { other: '# 线' },
+    dlr: 'DLR',
+    tram: '电车',
+    count: { other: '# 条线路' },
+    none: (lines: string) => `${lines}停运。`,
+    part: (lines: string) => `${lines}部分停运。`,
+    severe: (lines: string) => `${lines}严重延误。`,
+    reduced: (lines: string) => `${lines}班次减少。`,
+    minor: (lines: string) => `${lines}轻微延误。`,
+    disruption: (lines: string) => `${lines}运营受到影响。`,
+    closed: (lines: string) => `${lines}目前没有列车。`,
+    good: (lines: string) => `${lines}运营正常。`
   },
   train: {
     gone: '这趟列车已消失',

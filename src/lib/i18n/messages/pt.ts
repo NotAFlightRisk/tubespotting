@@ -29,11 +29,18 @@ export default {
     },
     keys: 'As setas movem o mapa, mais e menos mudam o zoom. A lista de linhas, a busca e os painéis das estações têm tudo o que o mapa mostra.',
     station: (station: string) =>
-      `Mapa ao vivo em torno de ${station}, com suas linhas e trens em destaque`
+      `Mapa ao vivo em torno de ${station}, com suas linhas e trens em destaque`,
+    line: (line: string) => `Mapa ao vivo: ${line} e seus trens`
   },
   page: {
     search: 'Buscar',
     settings: 'Configurações',
+    map: 'Mapa',
+    menu: 'Menu',
+    skip: 'Pular para o conteúdo',
+    trail: 'Navegação estrutural',
+    liveMap: 'Mapa ao vivo',
+    openOnMap: 'Abrir no mapa ao vivo',
     aboutMap: 'Sobre este mapa',
     details: 'Detalhes',
     back: 'Voltar para todas as linhas',
@@ -63,7 +70,8 @@ export default {
     checking: 'Verificando a situação',
     running: { one: '# trem circulando', other: '# trens circulando' },
     to: (place: string) => `Para ${place}`,
-    trainsTo: (place: string) => `Trens para ${place}`
+    trainsTo: (place: string) => `Trens para ${place}`,
+    page: 'Página da linha'
   },
   station: {
     lines: 'Linhas',
@@ -75,8 +83,6 @@ export default {
     none: 'Nenhum trem previsto aqui no momento.',
     page: 'Página da estação',
     terminatingHere: 'Termina aqui',
-    trail: 'Navegação estrutural',
-    liveMap: 'Mapa ao vivo',
     departures: 'Partidas',
     notices: 'Avisos da estação',
     status: 'Situação das linhas',
@@ -87,7 +93,6 @@ export default {
     around: 'Arredores',
     next: 'Próximas paradas',
     nearby: 'A uma curta caminhada',
-    onMap: 'Abrir no mapa ao vivo',
     recentre: 'Voltar para a estação'
   },
   facts: {
@@ -110,6 +115,42 @@ export default {
     intro: (count: string) =>
       `Todas as ${count} estações do mapa, cada uma com partidas ao vivo, movimento e os trens a caminho.`,
     letters: 'Ir para uma letra'
+  },
+  lines: {
+    title: 'Linhas',
+    heading: 'Situação das linhas da TfL ao vivo',
+    intro:
+      'Situação em tempo real de toda a rede da TfL. Clique em uma linha para ver estatísticas ao vivo.',
+    between: (places: string) => `Liga ${places}`,
+    length: 'Extensão',
+    interchanges: 'Conexões',
+    zones: 'Zonas',
+    now: 'Trens agora',
+    hint: 'Os trens se movem ao vivo, apontando para onde estão indo. Escolha um para ver para onde ele vai.',
+    branch: (to: string) => `Ramal para ${to}`,
+    loop: (via: string, at: string) => `Por ${via}, volta à linha em ${at}`,
+    train: (to: string, where: string) => `${to}. ${where}`,
+    trains: 'Trens por destino',
+    others: 'Outras linhas',
+    recentre: 'Voltar para a linha inteira'
+  },
+  summary: {
+    checking: 'Verificando como está cada linha…',
+    every: 'Operação normal em todas as linhas.',
+    rest: 'Operação normal nas demais linhas.',
+    idle: 'Nenhum trem está circulando no momento.',
+    lines: { one: 'na linha #', other: 'nas linhas #' },
+    dlr: 'no DLR',
+    tram: 'no bonde',
+    count: { one: 'em # linha', other: 'em # linhas' },
+    none: (lines: string) => `Operação interrompida ${lines}.`,
+    part: (lines: string) => `Operação parcialmente interrompida ${lines}.`,
+    severe: (lines: string) => `Atrasos graves ${lines}.`,
+    reduced: (lines: string) => `Serviço reduzido ${lines}.`,
+    minor: (lines: string) => `Pequenos atrasos ${lines}.`,
+    disruption: (lines: string) => `Problemas ${lines}.`,
+    closed: (lines: string) => `Nenhum trem ${lines} no momento.`,
+    good: (lines: string) => `Operação normal ${lines}.`
   },
   train: {
     gone: 'Esse trem sumiu',

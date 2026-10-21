@@ -5,8 +5,8 @@
   import { placeOf, type Station } from '#lib/network.js';
   import type { Snapshot, TrainReading } from '#lib/types.js';
   import Departures from './Departures.svelte';
-  import Icon from './Icon.svelte';
   import LineChips from './LineChips.svelte';
+  import PageLink from './PageLink.svelte';
 
   interface Props {
     station: Station;
@@ -27,11 +27,7 @@
   <LineChips lines={place.lines.filter((line) => shown.has(line))} />
 </header>
 
-<a class="page" href="/stations/{place.slug}">
-  <span class="eyebrow">{t.station.page}</span>
-  <span class="name">{place.name}</span>
-  <Icon name="forward" />
-</a>
+<PageLink href="/stations/{place.slug}" eyebrow={t.station.page} name={place.name} />
 
 <Departures {place} lines={shown} {snapshot} {now} {trainOf} {onpicktrain} />
 
@@ -45,40 +41,5 @@
     margin: 0;
     font: 26px/1.1 var(--font-display);
     color: var(--station-ink);
-  }
-
-  .page {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    column-gap: var(--space-2);
-    margin-top: var(--space-4);
-    padding: var(--space-2) var(--space-3);
-    border-radius: var(--radius-small);
-    background: var(--accent);
-    color: var(--accent-ink);
-    text-decoration: none;
-
-    .eyebrow {
-      font: 600 12px/1.3 var(--font-ui);
-      opacity: 0.85;
-    }
-
-    .name {
-      grid-row: 2;
-      overflow: hidden;
-      font: 17px/1.2 var(--font-display);
-      white-space: nowrap;
-      text-overflow: ellipsis;
-    }
-
-    :global(svg) {
-      grid-area: 1 / 2 / 3;
-      transition: translate 320ms var(--ease-out);
-    }
-
-    &:hover :global(svg) {
-      translate: 3px 0;
-    }
   }
 </style>

@@ -29,11 +29,18 @@ export default {
     },
     keys: 'Les flèches déplacent la carte, plus et moins zooment. La liste des lignes, la recherche et les tableaux des stations reprennent tout ce que montre la carte.',
     station: (station: string) =>
-      `Carte en direct autour de ${station}, avec ses lignes et ses trains mis en avant`
+      `Carte en direct autour de ${station}, avec ses lignes et ses trains mis en avant`,
+    line: (line: string) => `Carte en direct : ${line} et ses trains`
   },
   page: {
     search: 'Rechercher',
     settings: 'Paramètres',
+    map: 'Carte',
+    menu: 'Menu',
+    skip: 'Aller au contenu',
+    trail: 'Fil d’Ariane',
+    liveMap: 'Carte en direct',
+    openOnMap: 'Ouvrir sur la carte en direct',
     aboutMap: 'À propos de cette carte',
     details: 'Détails',
     back: 'Retour à toutes les lignes',
@@ -63,7 +70,8 @@ export default {
     checking: 'Vérification de l’état du trafic',
     running: { one: '# train en circulation', other: '# trains en circulation' },
     to: (place: string) => `Vers ${place}`,
-    trainsTo: (place: string) => `Trains vers ${place}`
+    trainsTo: (place: string) => `Trains vers ${place}`,
+    page: 'Page de la ligne'
   },
   station: {
     lines: 'Lignes',
@@ -75,8 +83,6 @@ export default {
     none: 'Aucun train attendu ici pour le moment.',
     page: 'Page de la station',
     terminatingHere: 'Terminus ici',
-    trail: 'Fil d’Ariane',
-    liveMap: 'Carte en direct',
     departures: 'Départs',
     notices: 'Avis de la station',
     status: 'État des lignes',
@@ -87,7 +93,6 @@ export default {
     around: 'Aux alentours',
     next: 'Arrêts suivants',
     nearby: 'À quelques pas',
-    onMap: 'Ouvrir sur la carte en direct',
     recentre: 'Revenir à la station'
   },
   facts: {
@@ -110,6 +115,42 @@ export default {
     intro: (count: string) =>
       `Les ${count} stations de la carte, chacune avec ses départs en direct, son affluence et les trains qui arrivent.`,
     letters: 'Aller à une lettre'
+  },
+  lines: {
+    title: 'Lignes',
+    heading: 'État du trafic TfL en direct',
+    intro:
+      'L’état du trafic en temps réel sur tout le réseau TfL. Cliquez sur une ligne pour ses statistiques en direct.',
+    between: (places: string) => `Relie ${places}`,
+    length: 'Longueur',
+    interchanges: 'Correspondances',
+    zones: 'Zones',
+    now: 'Trains en ce moment',
+    hint: 'Les trains avancent en direct, tournés dans leur sens de marche. Choisissez-en un pour voir où il va.',
+    branch: (to: string) => `Branche vers ${to}`,
+    loop: (via: string, at: string) => `Par ${via}, rejoint la ligne à ${at}`,
+    train: (to: string, where: string) => `${to}. ${where}`,
+    trains: 'Trains par destination',
+    others: 'Autres lignes',
+    recentre: 'Revenir à toute la ligne'
+  },
+  summary: {
+    checking: 'Vérification de l’état de chaque ligne…',
+    every: 'Trafic normal sur toutes les lignes.',
+    rest: 'Trafic normal sur toutes les autres lignes.',
+    idle: 'Aucun train ne circule pour le moment.',
+    lines: { one: 'la ligne #', other: 'les lignes #' },
+    dlr: 'le DLR',
+    tram: 'le tramway',
+    count: { one: '# ligne', other: '# lignes' },
+    none: (lines: string) => `Trafic interrompu sur ${lines}.`,
+    part: (lines: string) => `Trafic partiellement interrompu sur ${lines}.`,
+    severe: (lines: string) => `Retards importants sur ${lines}.`,
+    reduced: (lines: string) => `Service réduit sur ${lines}.`,
+    minor: (lines: string) => `Légers retards sur ${lines}.`,
+    disruption: (lines: string) => `Trafic perturbé sur ${lines}.`,
+    closed: (lines: string) => `Aucun train sur ${lines} pour le moment.`,
+    good: (lines: string) => `Trafic normal sur ${lines}.`
   },
   train: {
     gone: 'Ce train a disparu',

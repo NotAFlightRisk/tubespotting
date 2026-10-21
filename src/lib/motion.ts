@@ -102,7 +102,8 @@ export function schedule(train: TrainReading, at: number, runs: Runs = new Map()
   return legs;
 }
 
-const ease = (f: number) => 0.5 - 0.5 * Math.cos(Math.PI * f);
+/** How far along a run it is, out of 1, pulling away slowly and slowing in to the next */
+export const ease = (f: number) => 0.5 - 0.5 * Math.cos(Math.PI * f);
 // how fast `ease` is going at f, over a run of one second
 const slope = (f: number) => (Math.PI / 2) * Math.sin(Math.PI * f);
 
@@ -135,6 +136,14 @@ function standing(line: LineId, station: number, towards: number, layout: Layout
   return { ...along(line, [station, next], 0, layout), at: station };
 }
 
+/** The leg a train's on at `t` (epoch seconds), and how far through it, 0 while it's still stood */
+export function legAt(legs: Leg[], t: number) {
+  const leg = legs.find((l) => t < l.arrive) ?? legs.at(-1);
+  if (!leg) return null;
+  const run = Math.max(leg.arrive - leg.depart, MIN_RUN);
+  return { leg, run, progress: Math.min(1, Math.max(0, (t - leg.depart) / run)) };
+}
+
 /** Where a train is at time `t` (epoch seconds), assuming it keeps to TfL's estimates */
 export function locate(
   line: LineId,
@@ -143,12 +152,11 @@ export function locate(
   t: number,
   layout = layouts.geographic
 ): Placement {
-  const leg = legs.find((l) => t < l.arrive) ?? legs.at(-1);
-  if (!leg) return standing(line, fallback, fallback, layout);
+  const on = legAt(legs, t);
+  if (!on) return standing(line, fallback, fallback, layout);
+  const { leg, run, progress } = on;
   if (t < leg.depart) return standing(line, leg.from, leg.to, layout);
   const path = pathBetween(line, leg.from, leg.to) ?? [leg.from, leg.to];
-  const run = Math.max(leg.arrive - leg.depart, MIN_RUN);
-  const progress = Math.min(1, (t - leg.depart) / run);
   const metres = span(path);
   const placed = along(line, path, ease(progress) * metres, layout);
   return { ...placed, at: progress === 1 ? leg.to : null, speed: (slope(progress) * metres) / run };

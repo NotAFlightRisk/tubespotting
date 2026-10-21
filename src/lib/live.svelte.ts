@@ -1,4 +1,6 @@
+import { onMount } from 'svelte';
 import { Fleet, type Tracked } from './fleet.js';
+import { settings } from './settings/settings.svelte.js';
 import type { Snapshot, TrainReading } from './types.js';
 
 // a reading this old has fallen behind, rather than just catching up
@@ -15,7 +17,7 @@ export class Live {
   readonly fleet = new Fleet();
   #every = 10_000;
   #timer: ReturnType<typeof setTimeout> | undefined;
-  #running = false;
+  #polling = false;
   #pages = 0;
 
   /** Milliseconds between polls */
@@ -25,11 +27,13 @@ export class Live {
   }
 
   // the fleet keeps its trains to itself, so this looks again whenever a reading lands
-  #byReading = $derived.by(() => {
+  /** Trains on the map, rather than fading off it */
+  running = $derived.by(() => {
     void this.snapshot;
-    const trains = [...this.fleet.trains.values()].filter((train) => !train.gone);
-    return new Map(trains.map((train) => [train.reading, train]));
+    return [...this.fleet.trains.values()].filter((train) => !train.gone);
   });
+
+  #byReading = $derived(new Map(this.running.map((train) => [train.reading, train])));
 
   /** Which train a board's reading is, while it's still on the map */
   trainOf = (reading: TrainReading): Tracked | undefined => this.#byReading.get(reading);
@@ -65,7 +69,7 @@ export class Live {
     } catch {
       this.failing = true;
     }
-    if (this.#running) this.#wait();
+    if (this.#polling) this.#wait();
     // outside the try, so a bug in here gets reported rather than passed off as the network
     if (snapshot && (!this.snapshot || snapshot.at > this.snapshot.at)) {
       this.fleet.update(snapshot);
@@ -74,13 +78,13 @@ export class Live {
   }
 
   start() {
-    if (this.#running) return;
-    this.#running = true;
+    if (this.#polling) return;
+    this.#polling = true;
     this.#poll();
   }
 
   stop() {
-    this.#running = false;
+    this.#polling = false;
     clearTimeout(this.#timer);
     this.#timer = undefined;
   }
@@ -104,3 +108,11 @@ export class Live {
 
 /** One for every page, so going between them carries on with the same trains */
 export const live = new Live();
+
+/** Keeps the trains coming, as often as the settings say, for as long as the page calling it is open */
+export function connectLive() {
+  $effect(() => {
+    live.every = settings.refresh * 1000;
+  });
+  onMount(() => live.connect());
+}

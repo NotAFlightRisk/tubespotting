@@ -83,6 +83,11 @@ body {
   overflow: visible;
 }
 
+/* anything a link jumps to there lands clear of the header stuck to the top */
+:root:has(.scrolls) {
+  scroll-padding-top: calc(72px + env(safe-area-inset-top));
+}
+
 body {
   background: var(--paper);
   color: var(--text);
@@ -136,6 +141,23 @@ a {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/* how a line's running, as a colour for its words or its dot to take */
+[data-tone] {
+  --tone: var(--text-muted);
+}
+
+[data-tone='good'] {
+  --tone: var(--good);
+}
+
+[data-tone='warn'] {
+  --tone: var(--warn);
+}
+
+[data-tone='bad'] {
+  --tone: var(--bad);
 }
 
 :root[data-calm='true'] {

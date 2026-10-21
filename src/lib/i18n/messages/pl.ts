@@ -31,11 +31,18 @@ export default {
     },
     keys: 'Strzałki przesuwają mapę, plus i minus zmieniają przybliżenie. Lista linii, wyszukiwarka i tablice stacji pokazują wszystko to, co mapa.',
     station: (station: string) =>
-      `Mapa na żywo wokół stacji ${station}, z wyróżnionymi jej liniami i pociągami`
+      `Mapa na żywo wokół stacji ${station}, z wyróżnionymi jej liniami i pociągami`,
+    line: (line: string) => `Mapa na żywo: ${line} i jej pociągi`
   },
   page: {
     search: 'Szukaj',
     settings: 'Ustawienia',
+    map: 'Mapa',
+    menu: 'Menu',
+    skip: 'Przejdź do treści',
+    trail: 'Ścieżka nawigacji',
+    liveMap: 'Mapa na żywo',
+    openOnMap: 'Otwórz na mapie na żywo',
     aboutMap: 'O tej mapie',
     details: 'Szczegóły',
     back: 'Wróć do wszystkich linii',
@@ -70,7 +77,8 @@ export default {
       other: '# pociągu w ruchu'
     },
     to: (place: string) => `Kierunek ${place}`,
-    trainsTo: (place: string) => `Pociągi w kierunku ${place}`
+    trainsTo: (place: string) => `Pociągi w kierunku ${place}`,
+    page: 'Strona linii'
   },
   station: {
     lines: 'Linie',
@@ -82,8 +90,6 @@ export default {
     none: 'W tej chwili nie ma tu żadnych pociągów.',
     page: 'Strona stacji',
     terminatingHere: 'Kończą bieg tutaj',
-    trail: 'Ścieżka nawigacji',
-    liveMap: 'Mapa na żywo',
     departures: 'Odjazdy',
     notices: 'Komunikaty stacji',
     status: 'Stan linii',
@@ -94,7 +100,6 @@ export default {
     around: 'Okolica',
     next: 'Następne przystanki',
     nearby: 'Kilka minut pieszo',
-    onMap: 'Otwórz na mapie na żywo',
     recentre: 'Wróć do stacji'
   },
   facts: {
@@ -117,6 +122,42 @@ export default {
     intro: (count: string) =>
       `Wszystkie stacje na mapie (${count}), każda z odjazdami na żywo, natężeniem ruchu i pociągami w drodze.`,
     letters: 'Przejdź do litery'
+  },
+  lines: {
+    title: 'Linie',
+    heading: 'Status linii TfL na żywo',
+    intro:
+      'Status całej sieci TfL w czasie rzeczywistym. Kliknij linię, aby zobaczyć statystyki na żywo.',
+    between: (places: string) => `Kursuje na trasie: ${places}`,
+    length: 'Długość',
+    interchanges: 'Przesiadki',
+    zones: 'Strefy',
+    now: 'Pociągi teraz',
+    hint: 'Pociągi poruszają się na żywo i wskazują kierunek jazdy. Wybierz jeden, aby zobaczyć, dokąd jedzie.',
+    branch: (to: string) => `Odgałęzienie: ${to}`,
+    loop: (via: string, at: string) => `Przez ${via}, łączy się z linią na stacji ${at}`,
+    train: (to: string, where: string) => `${to}. ${where}`,
+    trains: 'Pociągi według celu',
+    others: 'Inne linie',
+    recentre: 'Wróć do całej linii'
+  },
+  summary: {
+    checking: 'Sprawdzanie, jak kursują wszystkie linie…',
+    every: 'Ruch bez zakłóceń na wszystkich liniach.',
+    rest: 'Na pozostałych liniach ruch bez zakłóceń.',
+    idle: 'Obecnie nie kursują żadne pociągi.',
+    lines: { one: 'na linii #', few: 'na liniach #', many: 'na liniach #', other: 'na liniach #' },
+    dlr: 'na DLR',
+    tram: 'w sieci tramwajowej',
+    count: { one: 'na # linii', few: 'na # liniach', many: 'na # liniach', other: 'na # linii' },
+    none: (lines: string) => `Ruch wstrzymany ${lines}.`,
+    part: (lines: string) => `Ruch częściowo wstrzymany ${lines}.`,
+    severe: (lines: string) => `Duże opóźnienia ${lines}.`,
+    reduced: (lines: string) => `Ograniczona liczba kursów ${lines}.`,
+    minor: (lines: string) => `Niewielkie opóźnienia ${lines}.`,
+    disruption: (lines: string) => `Utrudnienia ${lines}.`,
+    closed: (lines: string) => `Obecnie brak pociągów ${lines}.`,
+    good: (lines: string) => `Ruch bez zakłóceń ${lines}.`
   },
   train: {
     gone: 'Tego pociągu już nie ma',

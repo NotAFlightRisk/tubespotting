@@ -16,7 +16,7 @@
   import TrainDetail from '#lib/components/TrainDetail.svelte';
   import { count, t } from '#lib/i18n/i18n.svelte.js';
   import { isLineId, lineById, linesIn, type LineId, type ModeId } from '#lib/lines.js';
-  import { live } from '#lib/live.svelte.js';
+  import { connectLive, live } from '#lib/live.svelte.js';
   import TubeMap, { type Tap } from '#lib/map/TubeMap.svelte';
   import { description, name, source, website } from '#lib/meta.js';
   import { distance, project, stationById, stations, type Point } from '#lib/network.js';
@@ -66,19 +66,9 @@
           bottom: selection ? Math.max(panelHeight, Math.round(innerHeight * 0.58)) : panelHeight
         }
   );
-  const running = $derived.by(() => {
-    void live.snapshot;
-    return [...live.fleet.trains.values()].filter(
-      (train) => !train.gone && shown.has(train.reading.line)
-    );
-  });
+  const running = $derived(live.running.filter((train) => shown.has(train.reading.line)));
   // the About sheet counts the Underground alone, whatever else is switched on
-  const underground = $derived.by(() => {
-    void live.snapshot;
-    return [...live.fleet.trains.values()].filter(
-      (train) => !train.gone && TUBE.has(train.reading.line)
-    ).length;
-  });
+  const underground = $derived(live.running.filter((train) => TUBE.has(train.reading.line)).length);
   const counts = $derived.by(() => {
     const counts = new Map<LineId, number>();
     for (const train of running)
@@ -173,10 +163,6 @@
   }
 
   $effect(() => {
-    live.every = settings.refresh * 1000;
-  });
-
-  $effect(() => {
     if (!notice) return;
     const timer = setTimeout(() => (notice = ''), 4000);
     return () => clearTimeout(timer);
@@ -211,10 +197,11 @@
 
   afterNavigate(() => (routed = true));
 
+  connectLive();
+
   onMount(() => {
     load();
     openFromAddress();
-    return live.connect();
   });
 </script>
 
@@ -348,10 +335,11 @@
         ontoggle={toggle}
       />
       <footer class="links">
+        <a class="link" href="/lines"><Icon name="branch" size={16} />{t.lines.title}</a>
+        <a class="link" href="/stations"><Icon name="roundel" size={16} />{t.stations.title}</a>
         <button type="button" class="link" onclick={() => (selection = { kind: 'about' })}>
           <Icon name="info" size={16} />{t.about}
         </button>
-        <a class="link" href="/stations"><Icon name="roundel" size={16} />{t.stations.title}</a>
         <a class="link" href={source} target="_blank" rel="noopener"
           ><Icon name="github" size={16} />GitHub</a
         >
@@ -578,10 +566,12 @@
       display: none;
     }
 
+    /* two by two, so the longer languages still fit the panel */
     .links {
       position: sticky;
       bottom: 0;
-      display: flex;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       gap: var(--space-2);
       margin-top: auto;
       padding: var(--space-3) var(--space-4);
