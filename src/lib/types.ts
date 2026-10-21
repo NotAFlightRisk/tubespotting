@@ -59,6 +59,12 @@ export interface Facts {
 /** How busy a station usually gets, Monday first, hour by hour, out of 100 for its busiest */
 export type Busy = number[][];
 
+/** The bits of a station's page the live map asks for when it's picked */
+export interface StationInfo {
+  facts: Facts | null;
+  busy: Busy | null;
+}
+
 /** The trains to one end of a line */
 export interface Service {
   to: string;
