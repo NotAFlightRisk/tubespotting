@@ -1,4 +1,5 @@
-import type { Place } from '#lib/network.js';
+import type { LineId } from '#lib/lines.js';
+import { placesOn, type Place } from '#lib/network.js';
 import type { Busy, Facts, TrainTimes } from '#lib/types.js';
 import stations from './stations.json' with { type: 'json' };
 
@@ -20,3 +21,12 @@ export const factsOf = (place: Place) => facts[keyOf(place)] ?? null;
 export const busyOf = (place: Place) => busy[keyOf(place)] ?? null;
 export const trainsOf = (place: Place) => trains[keyOf(place)] ?? null;
 export const crowdingOf = (place: Place) => crowding[keyOf(place)] ?? null;
+
+/** The zone of each station on a line, by its slug, where TfL gives one */
+export function zonesOn(line: LineId) {
+  const zones = placesOn(line).flatMap((place) => {
+    const zone = factsOf(place)?.zone;
+    return zone ? [[place.slug, zone] as const] : [];
+  });
+  return Object.fromEntries(zones);
+}

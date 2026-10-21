@@ -8,9 +8,19 @@
     path?: string;
     /** schema.org things for search engines */
     data?: object[];
+    /** Its picture for link previews, from the slash after the domain */
+    image?: string;
+    alt?: string;
   }
 
-  let { title, description, path = '', data = [] }: Props = $props();
+  let {
+    title,
+    description,
+    path = '',
+    data = [],
+    image = '/og.png',
+    alt = imageAlt
+  }: Props = $props();
 
   const url = $derived(site + path);
   // a < in a name can't close the script early
@@ -28,12 +38,12 @@
   <meta property="og:title" content={title} />
   <meta property="og:description" content={description} />
   <meta property="og:url" content={url} />
-  <meta property="og:image" content="{site}/og.png" />
+  <meta property="og:image" content="{site}{image}" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content={imageAlt} />
+  <meta property="og:image:alt" content={alt} />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:image:alt" content={imageAlt} />
+  <meta name="twitter:image:alt" content={alt} />
   {#each data as thing, i (i)}
     {@html `<script type="application/ld+json">${json(thing)}</script>`}
   {/each}

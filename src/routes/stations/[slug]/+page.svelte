@@ -19,7 +19,7 @@
   import Facts from '#lib/station/Facts.svelte';
   import FirstLast from '#lib/station/FirstLast.svelte';
   import Notices from '#lib/station/Notices.svelte';
-  import { stationData, stationDescription, stationTitle } from '#lib/station/seo.js';
+  import { stationData, stationDescription, stationImage, stationTitle } from '#lib/station/seo.js';
   import { nextCall } from '#lib/status.js';
 
   let { data } = $props();
@@ -83,6 +83,7 @@
   description={stationDescription(place)}
   path="/stations/{place.slug}"
   data={stationData(place, data.facts)}
+  {...stationImage(place)}
 />
 
 {#snippet warnings()}

@@ -22,6 +22,8 @@ export default defineConfig({
   resolve: {
     alias: cloudflareBuild ? {} : { 'cloudflare:workers': workersStandIn }
   },
+  // they only draw link previews while prerendering, so stay out of the server's bundle
+  ssr: { external: ['satori', 'sharp'] },
   build: {
     // fontsource subsets are small enough to inline, which the CSP would then block
     assetsInlineLimit: (file) => (file.endsWith('.woff2') ? false : undefined),

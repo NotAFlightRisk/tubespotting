@@ -10,7 +10,7 @@
   import Diagram from '#lib/line/Diagram.svelte';
   import { diagram, ends } from '#lib/line/diagram.js';
   import { lengthOf, zoneSpan } from '#lib/line/facts.js';
-  import { lineData, lineDescription, lineTitle } from '#lib/line/seo.js';
+  import { lineData, lineDescription, lineImage, lineTitle } from '#lib/line/seo.js';
   import { colourOf, inkOf, LINES, lineById, linesIn } from '#lib/lines.js';
   import { live } from '#lib/live.svelte.js';
   import type { Tap } from '#lib/map/TubeMap.svelte';
@@ -72,6 +72,7 @@
   description={lineDescription(line, drawn)}
   path="/lines/{line.id}"
   data={lineData(line)}
+  {...lineImage(line)}
 />
 
 <MapPage
