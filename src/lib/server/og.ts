@@ -53,6 +53,7 @@ function stripes(colours: string[]) {
       left: 1000,
       width: 96,
       height: 96,
+      boxSizing: 'border-box',
       borderRadius: 48,
       border: `12px solid ${TEXT}`,
       background: '#fff'
