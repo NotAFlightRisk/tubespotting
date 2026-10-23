@@ -28,11 +28,11 @@
   "devDependencies": {
     "@fontsource/doto": "^5.3.0",
     "@fontsource/hammersmith-one": "^5.3.0",
-    "@sentry/browser": "^11.7.0",
+    "@sentry/browser": "^11.8.0",
     "@sentry/vite-plugin": "^5.4.1",
-    "@sveltejs/adapter-cloudflare": "^8.0.0",
+    "@sveltejs/adapter-cloudflare": "^8.0.1",
     "@sveltejs/adapter-node": "^6.0.0",
-    "@sveltejs/kit": "^3.0.1",
+    "@sveltejs/kit": "^3.1.0",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@types/d3-interpolate": "^3.0.4",
     "@types/d3-selection": "^3.0.12",
@@ -45,14 +45,14 @@
     "d3-zoom": "^3.0.0",
     "prettier": "^3.9.10",
     "prettier-plugin-svelte": "^4.1.1",
-    "satori": "^0.33.5",
+    "satori": "^0.63.0",
     "sharp": "^0.35.5",
     "svelte": "^5.57.2",
-    "svelte-check": "^4.7.6",
+    "svelte-check": "^4.7.7",
     "typescript": "^6.0.3",
     "vite": "^8.3.4",
-    "vitest": "^5.0.4",
-    "wrangler": "^4.148.0"
+    "vitest": "^5.0.5",
+    "wrangler": "^4.151.2"
   },
   "imports": {
     "#lib/*": "./src/lib/*"
