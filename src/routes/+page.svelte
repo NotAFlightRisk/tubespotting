@@ -20,6 +20,7 @@
   import TubeMap, { type Tap } from '#lib/map/TubeMap.svelte';
   import { description, name, source, website } from '#lib/meta.js';
   import { distance, project, stationById, stations, type Point } from '#lib/network.js';
+  import { track } from '#lib/plausible.js';
   import Settings from '#lib/settings/Settings.svelte';
   import { load, looks, settings } from '#lib/settings/settings.svelte.js';
 
@@ -96,6 +97,7 @@
     reveal(id);
     selection = { kind: 'line', id };
     follow = searching = false;
+    track('Pick', { line: id });
     map.flyTo(
       stations.filter((s) => s.lines.includes(id)),
       0.1
@@ -105,6 +107,7 @@
   function pickStation(index: number) {
     selection = { kind: 'station', index };
     follow = searching = false;
+    track('Pick', { station: stations[index].name });
     map.flyTo([stations[index]], 0.09);
   }
 
