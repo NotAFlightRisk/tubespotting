@@ -1,8 +1,12 @@
 <script lang="ts">
+  import { afterNavigate } from '$app/navigation';
   import { page } from '$app/state';
   import { t } from '#lib/i18n/i18n.svelte.js';
+  import { track } from '#lib/plausible.js';
 
   const lost = $derived(page.status === 404);
+
+  afterNavigate(() => lost && track('404', { path: location.pathname }));
 </script>
 
 <svelte:head>
