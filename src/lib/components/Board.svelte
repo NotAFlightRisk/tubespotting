@@ -194,11 +194,9 @@
   }
 
   @media (max-width: 959px) {
+    /* iOS only scrolls a strip that takes touches, so it ends where the chips do */
     .board {
-      pointer-events: none;
-    }
-
-    button {
+      max-width: max-content;
       pointer-events: auto;
     }
 
