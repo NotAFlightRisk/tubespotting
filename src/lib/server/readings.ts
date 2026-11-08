@@ -50,6 +50,7 @@ const simplify = (name: string) =>
   name
     .toLowerCase()
     .replace(/&/g, 'and')
+    .replace(/['’]/g, '')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 

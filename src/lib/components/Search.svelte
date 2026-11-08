@@ -56,6 +56,8 @@
   const simplify = (text: string) =>
     text
       .toLowerCase()
+      .replace(/&/g, ' and ')
+      .replace(/['’]/g, '')
       .replace(/[^a-z0-9]+/g, ' ')
       .trim();
   const results = $derived.by(() => {
