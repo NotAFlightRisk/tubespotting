@@ -240,7 +240,8 @@ describe('lastStation', () => {
     ['Between Stockwell and Vauxhall', '940GZZLUSKW'],
     ['At Vauxhall Platform 2', '940GZZLUVXL'],
     ['Left Pimlico', '940GZZLUPCO'],
-    ['Departed Victoria', '940GZZLUVIC']
+    ['Departed Victoria', '940GZZLUVIC'],
+    ['At Kings Cross St. Pancras Platform 4', '940GZZLUKSX']
   ])('reads "%s"', (location, naptan) => {
     expect(lastStation(location, 'victoria')).toBe(index(naptan));
   });
