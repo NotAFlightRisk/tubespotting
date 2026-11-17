@@ -1,7 +1,7 @@
 /** What a notice says, whatever heading, label or dash TfL filed it under this time */
 const gist = (text: string) =>
   text
-    .replace(/^[^:]{0,40}:/, '')
+    .replace(/^[^:]{0,40}:(?=\s)/, '')
     .replace(/^\W*no step free access\b/i, '')
     .replace(/\W+/g, '')
     .toLowerCase();

@@ -28,7 +28,9 @@ describe('placeNotices', () => {
   it('keeps different notices at one station', () => {
     const notices = [
       'Harrow & Wealdstone: No Step Free Access - Step free access is not available to platforms 4 and 5.',
-      'Harrow & Wealdstone : Step free access is not available between the car park and the overbridge.'
+      'Harrow & Wealdstone : Step free access is not available between the car park and the overbridge.',
+      'Until 10:00, the lift to platform 1 is closed.',
+      'Until 11:00, the lift to platform 1 is closed.'
     ];
     expect(placeNotices(notices, [])).toEqual(notices);
   });
