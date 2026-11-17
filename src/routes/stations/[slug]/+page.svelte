@@ -19,6 +19,7 @@
   import Facts from '#lib/station/Facts.svelte';
   import FirstLast from '#lib/station/FirstLast.svelte';
   import Notices from '#lib/station/Notices.svelte';
+  import { placeNotices } from '#lib/station/notices.js';
   import { stationData, stationDescription, stationImage, stationTitle } from '#lib/station/seo.js';
   import { nextCall } from '#lib/status.js';
 
@@ -45,12 +46,12 @@
     train: picked,
     alone: true
   });
-  // TfL files a line's disruption under each of its stations too, where Line status says it already
-  const said = $derived.by(() => {
-    const reasons = new Set(live.snapshot?.status.map((s) => s.reason));
-    const all = new Set(place.members.flatMap((s) => notices[s.id] ?? []));
-    return [...all].filter((notice) => !reasons.has(notice));
-  });
+  const said = $derived(
+    placeNotices(
+      place.members.flatMap((s) => notices[s.id] ?? []),
+      live.snapshot?.status.map((s) => s.reason) ?? []
+    )
+  );
   // with a column to spare, notices and closures go at the top of it, not in a long line over both;
   // they only ever arrive after the page has opened, so the server never has to guess
   const wide = new MediaQuery('min-width: 960px');
