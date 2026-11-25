@@ -20,7 +20,7 @@
   let { line, status, trains, waiting, now, onpicktrain }: Props = $props();
 </script>
 
-<h2 style:--line={colourOf(line)} style:--ink={inkOf(line)}>{line.name}</h2>
+<h2 tabindex="-1" style:--line={colourOf(line)} style:--ink={inkOf(line)}>{line.name}</h2>
 <StatusText {status} />
 <PageLink href="/lines/{line.id}" eyebrow={t.line.page} name={lineName(line)} />
 <LineTrains {line} {trains} {waiting} {now} {onpicktrain} />

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { afterNavigate, goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { onMount, untrack } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import { MediaQuery } from 'svelte/reactivity';
   import About from '#lib/components/About.svelte';
   import Board from '#lib/components/Board.svelte';
@@ -47,6 +47,7 @@
   let panelHeight = $state(0);
   let innerHeight = $state(800);
   let map: TubeMap;
+  let panel: HTMLElement;
   let routed = $state(false);
   let sheeted = false;
 
@@ -93,9 +94,22 @@
     if (!shown.has(line)) settings.modes = [...settings.modes, mode];
   }
 
+  // focus in the panel moves with the sheet, so keyboards don't start over at Bakerloo
+  async function show(next: Selection) {
+    const steering = panel.contains(document.activeElement);
+    const line = selection?.kind === 'line' ? selection.id : null;
+    selection = next;
+    if (!steering) return;
+    await tick();
+    if (next) return panel.querySelector<HTMLElement>('.sheet h2')!.focus();
+    const button = panel.querySelector<HTMLElement>(`[data-line="${line}"]`);
+    if (button) button.focus();
+    else map.takeFocus();
+  }
+
   function pickLine(id: LineId) {
     reveal(id);
-    selection = { kind: 'line', id };
+    show({ kind: 'line', id });
     follow = searching = false;
     track('Pick', { line: id });
     map.flyTo(
@@ -105,7 +119,7 @@
   }
 
   function pickStation(index: number) {
-    selection = { kind: 'station', index };
+    show({ kind: 'station', index });
     follow = searching = false;
     track('Pick', { station: stations[index].name });
     map.flyTo([stations[index]], 0.09);
@@ -114,7 +128,7 @@
   function pickTrain(key: string) {
     const train = live.fleet.trains.get(key);
     if (!train) return;
-    selection = { kind: 'train', key };
+    show({ kind: 'train', key });
     follow = true;
     searching = false;
   }
@@ -126,8 +140,8 @@
   }
 
   function close() {
-    selection = null;
     follow = false;
+    if (selection) show(null);
   }
 
   function openFromAddress() {
@@ -212,9 +226,12 @@
   bind:innerHeight
   onkeydown={(event) => {
     const typing = event.target instanceof HTMLElement && event.target.closest('input, textarea');
-    if (event.key !== '/' || typing || searching || configuring || !settings.shortcuts) return;
-    event.preventDefault();
-    searching = true;
+    if (typing || searching || configuring) return;
+    if (event.key === 'Escape') close();
+    else if (event.key === '/' && settings.shortcuts) {
+      event.preventDefault();
+      searching = true;
+    }
   }}
 />
 
@@ -237,7 +254,7 @@
     onwander={() => (follow = false)}
   />
 
-  <aside class="panel" bind:clientHeight={panelHeight}>
+  <aside class="panel" bind:this={panel} bind:clientHeight={panelHeight}>
     <header class="masthead">
       <div class="brand">
         <h1>tubespotting</h1>
@@ -266,7 +283,7 @@
           class="about"
           aria-label={t.page.aboutMap}
           aria-expanded={about}
-          onclick={() => (about ? close() : (selection = { kind: 'about' }))}
+          onclick={() => (about ? close() : show({ kind: 'about' }))}
         >
           <Icon name="info" />
         </button>
@@ -340,7 +357,7 @@
       <footer class="links">
         <a class="link" href="/lines"><Icon name="branch" size={16} />{t.lines.title}</a>
         <a class="link" href="/stations"><Icon name="roundel" size={16} />{t.stations.title}</a>
-        <button type="button" class="link" onclick={() => (selection = { kind: 'about' })}>
+        <button type="button" class="link" onclick={() => show({ kind: 'about' })}>
           <Icon name="info" size={16} />{t.about}
         </button>
         <a class="link" href={source} target="_blank" rel="noopener"

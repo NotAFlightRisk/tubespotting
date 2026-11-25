@@ -13,7 +13,7 @@
 </script>
 
 <header>
-  <h2>{t.about}</h2>
+  <h2 tabindex="-1">{t.about}</h2>
   <Close onclick={onclose} />
 </header>
 <AboutText {trains} />

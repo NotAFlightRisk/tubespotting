@@ -31,7 +31,7 @@
 </script>
 
 <header>
-  <h2>{station.name}</h2>
+  <h2 tabindex="-1">{station.name}</h2>
   <LineChips lines={place.lines.filter((line) => shown.has(line))} />
 </header>
 

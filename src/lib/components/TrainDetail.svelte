@@ -29,12 +29,12 @@
 </script>
 
 {#if !train || !line || train.gone}
-  <h2>{t.train.gone}</h2>
+  <h2 tabindex="-1">{t.train.gone}</h2>
   <p class="quiet">{t.train.goneWhy}</p>
 {:else}
   <div class="train" style:--line={colourOf(line)} style:--ink={inkOf(line)}>
     <header>
-      <h2>
+      <h2 tabindex="-1">
         <span class="line">{line.name}</span>
         {train.reading.to ? t.train.to(train.reading.to) : t.train.unknown}
       </h2>

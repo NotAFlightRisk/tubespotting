@@ -134,6 +134,10 @@
     select(top).call(behaviour.scaleTo, FURTHEST * (CLOSEST / FURTHEST) ** level);
   }
 
+  export function takeFocus() {
+    wrap.focus();
+  }
+
   function nearest<K>(hits: Map<K, Hit>, at: Point): K | null {
     let best: K | null = null;
     let bestDistance = Infinity;
