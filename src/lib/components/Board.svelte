@@ -42,6 +42,7 @@
         <button
           type="button"
           class="line"
+          data-line={line.id}
           style:--line={colourOf(line)}
           style:--ink={inkOf(line)}
           onclick={() => onpick(line.id)}

@@ -90,7 +90,6 @@
 <div class="search" role="search">
   <div class="field">
     <Icon name="search" />
-    <!-- svelte-ignore a11y_autofocus -->
     <input
       type="search"
       placeholder={t.search.find}
@@ -100,10 +99,10 @@
       aria-controls="search-results"
       aria-activedescendant={results.length ? `result-${active}` : undefined}
       autocomplete="off"
-      autofocus
       bind:value={query}
       oninput={() => (active = 0)}
       {onkeydown}
+      {@attach (input) => input.focus()}
     />
     <button type="button" class="close" aria-label={t.search.close} onclick={onclose}>
       <Icon name="close" />
