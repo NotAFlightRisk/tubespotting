@@ -360,9 +360,9 @@
         <button type="button" class="link" onclick={() => show({ kind: 'about' })}>
           <Icon name="info" size={16} />{t.about}
         </button>
-        <a class="link" href={source} target="_blank" rel="noopener"
-          ><Icon name="github" size={16} />GitHub</a
-        >
+        <a class="link" href={source} target="_blank" rel="noopener">
+          <Icon name="github" size={16} />GitHub
+        </a>
       </footer>
     {/if}
   </aside>
@@ -370,8 +370,9 @@
   <div class="controls floating" style:--lift="{inset.bottom}px">
     {#if notice}<p class="notice" role="status">{notice}</p>{/if}
     <MapButtons onzoom={(by) => map.zoomBy(by)} />
-    <button type="button" aria-label={t.page.locate} onclick={locate}><Icon name="locate" /></button
-    >
+    <button type="button" aria-label={t.page.locate} onclick={locate}>
+      <Icon name="locate" />
+    </button>
   </div>
 
   {#if configuring}

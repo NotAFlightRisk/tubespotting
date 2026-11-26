@@ -56,8 +56,9 @@
       <ol aria-hidden="true">
         {#each hours as level, h (h)}
           <li class:now={day === today.day && h === today.hour} style:--level="{level}%">
-            {#if day === today.day && h === today.hour}<span class="mark">{t.station.now}</span
-              >{/if}
+            {#if day === today.day && h === today.hour}<span class="mark">
+                {t.station.now}
+              </span>{/if}
             {#if LABELLED.includes(h)}<span class="hour">{hour(h)}</span>{/if}
           </li>
         {/each}
