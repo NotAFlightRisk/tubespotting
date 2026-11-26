@@ -42,7 +42,7 @@ export default defineConfig({
           'default-src': ['self'],
           'script-src': ['self', ...pulse],
           'connect-src': ['self', ...pulse, ...oops],
-          'img-src': ['self', 'data:'],
+          'img-src': ['self', 'data:', 'https://portfolio.peng.ly'],
           'style-src': ['self', 'unsafe-inline'],
           'font-src': ['self'],
           'base-uri': ['none'],

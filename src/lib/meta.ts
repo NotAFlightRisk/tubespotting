@@ -15,7 +15,7 @@ export const website = {
   url: site
 };
 
-/** Our other transport and data apps, linked from About, with their logos in static/apps */
+/** Our other transport and data apps, linked from About */
 export const relatedApps = [
   {
     slug: 'leaves-on-the-line',
