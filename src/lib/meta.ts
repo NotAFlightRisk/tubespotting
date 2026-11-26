@@ -15,6 +15,34 @@ export const website = {
   url: site
 };
 
+/** Our other transport and data apps, linked from About, with their logos in static/apps */
+export const relatedApps = [
+  {
+    slug: 'leaves-on-the-line',
+    name: 'Leaves on the Line',
+    about: "why Britain's trains were late",
+    url: 'https://leaves.peng.ly'
+  },
+  {
+    slug: 'floodpulse',
+    name: 'floodpulse',
+    about: 'river levels and flood warnings across England',
+    url: 'https://floodpulse.peng.ly'
+  },
+  {
+    slug: 'track-the-gap',
+    name: 'Track the Gap',
+    about: "how the Tube's really running, line by line",
+    url: 'https://track-the-gap.peng.ly'
+  },
+  {
+    slug: 'carbonara',
+    name: 'carbonara',
+    about: "how clean Britain's electricity is right now",
+    url: 'https://carbonara.peng.ly'
+  }
+];
+
 export const counting = Boolean(import.meta.env.PUBLIC_PLAUSIBLE_SCRIPT);
 export const reporting = Boolean(import.meta.env.PUBLIC_SENTRY_DSN);
 
