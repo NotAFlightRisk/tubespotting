@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { counting, reporting, source } from '#lib/meta.js';
+  import { counting, relatedApps, reporting, source } from '#lib/meta.js';
 
   interface Props {
     /** Underground trains running now, or null until TfL has answered */
@@ -10,7 +10,6 @@
 
   let { trains = null, page = false }: Props = $props();
 
-  const apps = ['apps.aliciasykes.com', 'peng.ly/projects'];
   const heading = $derived(page ? 'h2' : 'h3');
 </script>
 
@@ -92,11 +91,19 @@
   <section>
     <svelte:element this={heading}>More apps</svelte:element>
     <p>If you enjoyed this, Lissy and Pengly have many more open source projects to check out!</p>
-    <ul>
-      {#each apps as app (app)}
-        <li>{@render link(`https://${app}`, app)}</li>
+    <ul class="apps">
+      {#each relatedApps as app (app.slug)}
+        <li>
+          <img src="/apps/{app.slug}.svg" alt="" width="16" height="16" loading="lazy" />
+          <span>{@render link(app.url, app.name)} - {app.about}</span>
+        </li>
       {/each}
     </ul>
+    <p>
+      And the rest are over at
+      {@render link('https://apps.aliciasykes.com', 'apps.aliciasykes.com')} and
+      {@render link('https://peng.ly/projects', 'peng.ly/projects')}.
+    </p>
   </section>
 </div>
 
@@ -134,5 +141,20 @@
 
   li + li {
     margin-top: var(--space-1);
+  }
+
+  .apps {
+    padding: 0;
+    list-style: none;
+
+    li {
+      display: flex;
+      gap: var(--space-2);
+    }
+
+    img {
+      flex: none;
+      height: 1lh;
+    }
   }
 </style>
